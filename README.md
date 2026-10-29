@@ -80,7 +80,7 @@ Without them the app still builds and runs, but shows "Sign-in is not configured
 **Neon database** (Phase 1)
 1. Create a separate Neon project for this app.
 2. Copy the connection string into `DATABASE_URL`.
-3. Apply the migrations: `DATABASE_URL=... npm run db:migrate`. After changing `src/db/schema.ts`, run `npm run db:generate` and commit the new SQL in `drizzle/`.
+3. Apply the migrations: `npm run db:migrate` (reads `DATABASE_URL` from the environment or `.env.local`, prints what it applied, verifies the tables, and exits non-zero on failure). After changing `src/db/schema.ts`, run `npm run db:generate` and commit the new SQL in `drizzle/`.
 
 **Gemini API key** (Phase 3)
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
