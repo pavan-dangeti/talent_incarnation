@@ -29,8 +29,8 @@ A career guidance platform that aims to help students and early-career people:
 
 | Feature | Status |
 |---|---|
-| Landing page | Starter template only |
-| Google sign-in and user profiles | Planned (Phase 1) |
+| Landing page | Minimal (sign-in entry point) |
+| Google sign-in, editable profile, account deletion | Built in Phase 1; not yet verified against a live Google client and Neon database (needs your credentials) |
 | Skill assessment: adaptive difficulty, explained scoring, original question bank for software engineering, data/AI and UI/UX design | Planned (Phase 2) |
 | Gemini career chatbot grounded in your results and a curated careers dataset, with citations | Planned (Phase 3) |
 | Skill-gap analysis and learning roadmap for a target role | Planned (Phase 4) |
@@ -46,8 +46,8 @@ None yet. Numbers will be added here only when they come from a committed result
 | Technology | Status |
 |---|---|
 | Next.js (App Router), TypeScript, Tailwind CSS, Vercel | In use |
-| Auth.js with Google sign-in | Planned |
-| Neon Postgres (pgvector) with Drizzle migrations | Planned |
+| Auth.js (v5 beta) with Google sign-in, database sessions | In use (Phase 1) |
+| Neon Postgres with Drizzle migrations | In use (Phase 1); pgvector arrives with Phase 3 |
 | Gemini API (embeddings and generation) | Planned |
 
 ## Getting started
@@ -69,7 +69,7 @@ Secrets are read from environment variables and are never committed. Copy the te
 cp .env.example .env.local
 ```
 
-Nothing in the current starter reads these yet; they are needed from Phase 1 (auth, database) and Phase 3 (Gemini).
+Without them the app still builds and runs, but shows "Sign-in is not configured". `GEMINI_*` is not used until Phase 3.
 
 **Google OAuth client** (Phase 1)
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or pick a project, then go to APIs & Services → OAuth consent screen and configure it.
@@ -80,6 +80,7 @@ Nothing in the current starter reads these yet; they are needed from Phase 1 (au
 **Neon database** (Phase 1)
 1. Create a separate Neon project for this app.
 2. Copy the connection string into `DATABASE_URL`.
+3. Apply the migrations: `DATABASE_URL=... npm run db:migrate`. After changing `src/db/schema.ts`, run `npm run db:generate` and commit the new SQL in `drizzle/`.
 
 **Gemini API key** (Phase 3)
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
