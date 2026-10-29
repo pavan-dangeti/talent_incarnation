@@ -6,7 +6,6 @@
 
 *Google Solution Challenge 2025 — National Top 100 · selected for the on-campus round, Chandigarh*
 
-[![MVP Deployment](https://img.shields.io/badge/🌐_MVP_Deployment-talent--incarnation.vercel.app-6366f1?style=for-the-badge)](https://talent-incarnation.vercel.app)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](./LICENSE)
 
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=next.js&logoColor=white)
