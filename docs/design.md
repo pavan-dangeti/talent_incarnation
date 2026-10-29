@@ -37,7 +37,7 @@ Choices (each can be challenged before Phase 1):
 | Concern | Choice | Reason |
 |---|---|---|
 | Framework | Latest stable Next.js, React, TypeScript strict | Already the stack; Phase 0 upgrades it |
-| Auth | Auth.js with Google provider, database sessions | Required Google sign-in; `next-auth` v4 is already a dependency but outdated |
+| Auth | Auth.js v5 (`next-auth@beta`, still a beta tag on npm) with Google provider, database sessions | Required Google sign-in; v4 is stable but older. Revisit when v5 ships a stable tag |
 | Database | Neon Postgres (separate project), pgvector for embeddings | One store for relational data and vectors; no extra vector service |
 | ORM / migrations | Drizzle with checked-in SQL migrations | Typed queries, reviewable migrations |
 | Validation | zod at every trust boundary | Single source for request types |
@@ -51,7 +51,7 @@ Assessment and roadmap logic stay as pure functions so they can be tested withou
 
 ## 4. Data model
 
-Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`accounts`, `sessions`, `verification_tokens`) follow the library's schema and are omitted here.
+Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`account`, `session`, `verification_token`) follow the library's schema and are omitted here. Migrations are incremental: Phase 1 creates only the auth tables and `profile`; each later phase adds the tables it uses.
 
 | Table | Key columns | Notes |
 |---|---|---|

@@ -11,6 +11,18 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,5 +33,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # fresh database: apply migrations and verify the auth tables exist, then re-run to prove idempotence
+      - run: npm run db:migrate
+      - run: npm run db:migrate
       - run: npm run build
       - run: npm audit --audit-level=high
