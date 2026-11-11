@@ -22,7 +22,15 @@ if (!raw) {
 // pg already treats sslmode=require as verify-full; say so to silence its warning.
 const url = raw.replace("sslmode=require", "sslmode=verify-full");
 
-const REQUIRED_TABLES = ["user", "account", "session", "verification_token", "profile"];
+const REQUIRED_TABLES = [
+  "user",
+  "account",
+  "session",
+  "verification_token",
+  "profile",
+  "assessment",
+  "assessment_answer",
+];
 const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8"));
 const pool = new pg.Pool({ connectionString: url, max: 1 });
 

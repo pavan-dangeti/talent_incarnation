@@ -1,0 +1,345 @@
+{
+  "description": "Recovery of known ability by the adaptive engine for synthetic learners who answer according to the engine's own 3PL model. Ability is on a logit scale. Not a validation against real learners.",
+  "baseCommit": "2b4994f",
+  "generatedOn": "2026-11-11",
+  "config": {
+    "learnersPerAbility": 2000,
+    "abilities": [
+      -2,
+      -1,
+      0,
+      1,
+      2
+    ],
+    "testLength": 15
+  },
+  "domains": {
+    "software": {
+      "bankSize": 30,
+      "adaptive": {
+        "rmse": 0.675,
+        "withinOneLogit": 0.867,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.599,
+            "bias": 0.401,
+            "rmse": 0.756,
+            "meanQuestions": 15,
+            "meanScore": 25,
+            "withinOneLogit": 0.827
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.812,
+            "bias": 0.188,
+            "rmse": 0.679,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.879
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": 0.019,
+            "bias": 0.019,
+            "rmse": 0.588,
+            "meanQuestions": 15,
+            "meanScore": 50.3,
+            "withinOneLogit": 0.914
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.818,
+            "bias": -0.182,
+            "rmse": 0.629,
+            "meanQuestions": 15,
+            "meanScore": 63.3,
+            "withinOneLogit": 0.892
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.611,
+            "bias": -0.389,
+            "rmse": 0.712,
+            "meanQuestions": 15,
+            "meanScore": 75.1,
+            "withinOneLogit": 0.824
+          }
+        ]
+      },
+      "randomBaseline": {
+        "rmse": 0.74,
+        "withinOneLogit": 0.826,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.459,
+            "bias": 0.541,
+            "rmse": 0.842,
+            "meanQuestions": 15,
+            "meanScore": 27,
+            "withinOneLogit": 0.78
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.808,
+            "bias": 0.192,
+            "rmse": 0.694,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.857
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": -0.006,
+            "bias": -0.006,
+            "rmse": 0.681,
+            "meanQuestions": 15,
+            "meanScore": 49.9,
+            "withinOneLogit": 0.852
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.79,
+            "bias": -0.21,
+            "rmse": 0.699,
+            "meanQuestions": 15,
+            "meanScore": 62.9,
+            "withinOneLogit": 0.845
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.518,
+            "bias": -0.482,
+            "rmse": 0.771,
+            "meanQuestions": 15,
+            "meanScore": 73.9,
+            "withinOneLogit": 0.794
+          }
+        ]
+      }
+    },
+    "data-ai": {
+      "bankSize": 30,
+      "adaptive": {
+        "rmse": 0.675,
+        "withinOneLogit": 0.867,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.599,
+            "bias": 0.401,
+            "rmse": 0.756,
+            "meanQuestions": 15,
+            "meanScore": 25,
+            "withinOneLogit": 0.827
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.812,
+            "bias": 0.188,
+            "rmse": 0.679,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.879
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": 0.019,
+            "bias": 0.019,
+            "rmse": 0.588,
+            "meanQuestions": 15,
+            "meanScore": 50.3,
+            "withinOneLogit": 0.914
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.818,
+            "bias": -0.182,
+            "rmse": 0.629,
+            "meanQuestions": 15,
+            "meanScore": 63.3,
+            "withinOneLogit": 0.892
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.611,
+            "bias": -0.389,
+            "rmse": 0.712,
+            "meanQuestions": 15,
+            "meanScore": 75.1,
+            "withinOneLogit": 0.824
+          }
+        ]
+      },
+      "randomBaseline": {
+        "rmse": 0.74,
+        "withinOneLogit": 0.826,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.459,
+            "bias": 0.541,
+            "rmse": 0.842,
+            "meanQuestions": 15,
+            "meanScore": 27,
+            "withinOneLogit": 0.78
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.808,
+            "bias": 0.192,
+            "rmse": 0.694,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.857
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": -0.006,
+            "bias": -0.006,
+            "rmse": 0.681,
+            "meanQuestions": 15,
+            "meanScore": 49.9,
+            "withinOneLogit": 0.852
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.79,
+            "bias": -0.21,
+            "rmse": 0.699,
+            "meanQuestions": 15,
+            "meanScore": 62.9,
+            "withinOneLogit": 0.845
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.518,
+            "bias": -0.482,
+            "rmse": 0.771,
+            "meanQuestions": 15,
+            "meanScore": 73.9,
+            "withinOneLogit": 0.794
+          }
+        ]
+      }
+    },
+    "ui-ux": {
+      "bankSize": 30,
+      "adaptive": {
+        "rmse": 0.675,
+        "withinOneLogit": 0.867,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.599,
+            "bias": 0.401,
+            "rmse": 0.756,
+            "meanQuestions": 15,
+            "meanScore": 25,
+            "withinOneLogit": 0.827
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.812,
+            "bias": 0.188,
+            "rmse": 0.679,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.879
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": 0.019,
+            "bias": 0.019,
+            "rmse": 0.588,
+            "meanQuestions": 15,
+            "meanScore": 50.3,
+            "withinOneLogit": 0.914
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.818,
+            "bias": -0.182,
+            "rmse": 0.629,
+            "meanQuestions": 15,
+            "meanScore": 63.3,
+            "withinOneLogit": 0.892
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.611,
+            "bias": -0.389,
+            "rmse": 0.712,
+            "meanQuestions": 15,
+            "meanScore": 75.1,
+            "withinOneLogit": 0.824
+          }
+        ]
+      },
+      "randomBaseline": {
+        "rmse": 0.74,
+        "withinOneLogit": 0.826,
+        "meanQuestions": 15,
+        "monotonic": true,
+        "byAbility": [
+          {
+            "trueAbility": -2,
+            "meanEstimate": -1.459,
+            "bias": 0.541,
+            "rmse": 0.842,
+            "meanQuestions": 15,
+            "meanScore": 27,
+            "withinOneLogit": 0.78
+          },
+          {
+            "trueAbility": -1,
+            "meanEstimate": -0.808,
+            "bias": 0.192,
+            "rmse": 0.694,
+            "meanQuestions": 15,
+            "meanScore": 36.8,
+            "withinOneLogit": 0.857
+          },
+          {
+            "trueAbility": 0,
+            "meanEstimate": -0.006,
+            "bias": -0.006,
+            "rmse": 0.681,
+            "meanQuestions": 15,
+            "meanScore": 49.9,
+            "withinOneLogit": 0.852
+          },
+          {
+            "trueAbility": 1,
+            "meanEstimate": 0.79,
+            "bias": -0.21,
+            "rmse": 0.699,
+            "meanQuestions": 15,
+            "meanScore": 62.9,
+            "withinOneLogit": 0.845
+          },
+          {
+            "trueAbility": 2,
+            "meanEstimate": 1.518,
+            "bias": -0.482,
+            "rmse": 0.771,
+            "meanQuestions": 15,
+            "meanScore": 73.9,
+            "withinOneLogit": 0.794
+          }
+        ]
+      }
+    }
+  }
+}

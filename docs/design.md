@@ -59,10 +59,9 @@ Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`account
 | `profiles` | user_id (unique FK), education_level, target_role_id, interests[] | 1:1 with user; user-editable |
 | `domains` | slug, name | e.g. software, data, design; seeded |
 | `skills` | slug, name, domain_id | |
-| `questions` | domain_id (software, data-ai, ui-ux), prompt, type, options (jsonb), correct, difficulty (1–5), explanation, source_note | Original content written for this project; `source_note` records authorship |
-| `assessments` | user_id, domain_id, status, started_at, completed_at | One attempt |
-| `assessment_answers` | assessment_id, question_id, answer, is_correct, time_ms, ability_after | Ordered log of the adaptive run |
-| `skill_scores` | user_id, assessment_id, domain_id, score (0–100), level, confidence | Result per attempt; history preserved |
+| (question bank) | id, domain, topic, difficulty (1–5), prompt, options, correct, explanation | Not a table: versioned TypeScript data in `src/assessment/bank`, original content, validated by tests. Answers reference the stable question id |
+| `assessment` | user_id, domain, status, started_at, completed_at, theta, se, score, level | One attempt; the result is written once on completion, so history is preserved. Check constraints on domain and status; a partial unique index allows one unfinished attempt per user and domain |
+| `assessment_answer` | assessment_id, position, question_id, choice, is_correct, answered_at | Ordered log. Primary key (assessment_id, position) and unique (assessment_id, question_id) make double submits a no-op |
 | `roles` | slug, title, summary, source_urls[] | Curated careers dataset |
 | `role_skills` | role_id, skill_id, required_level, weight | Defines the target profile |
 | `role_chunks` | role_id, content, embedding vector, source_url, chunk_index | RAG corpus |
@@ -72,12 +71,16 @@ Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`account
 
 Rules: every user-owned row is accessed only through queries scoped by `user_id` from the session. Account deletion cascades.
 
-## 5. Assessment engine (Phase 2)
+## 5. Assessment engine (Phase 2, built)
 
-- **Question bank:** original questions per domain, each with difficulty 1–5, a correct answer, and an explanation. Target size is decided by what can be written and reviewed well, not by a headline number; the README will state the actual count from the data file. No content copied from other platforms.
-- **Adaptive difficulty:** an Elo/IRT-style ability estimate. Start at mid difficulty, raise after a correct answer, lower after an incorrect one, pick the unseen question closest to the current estimate, stop after a fixed length or when the estimate stabilises.
-- **Scoring:** map the final ability estimate to 0–100 and a level band, plus per-topic breakdown and an explanation for each missed question.
-- **Verification:** unit tests for selection, termination and monotonicity; a simulation script with synthetic learners of known ability checks that estimates converge. Results are saved to `results/`.
+- **Question bank:** 90 original questions, 30 per domain and 6 at each difficulty level 1–5, each with four options, a correct answer, a topic and an explanation. Kept as code rather than database rows so that content changes are reviewed in pull requests and checked by tests (unique ids and prompts, coverage per level, answer positions balanced). No content copied from other platforms.
+- **Model:** three-parameter logistic IRT with fixed discrimination and a 0.25 guessing floor for four options. Difficulty levels map to logits −2..2. Ability is estimated by EAP (posterior mean on a grid with a normal prior), which stays finite when every answer is right or wrong.
+- **Adaptive selection:** the next question is the unseen one with the most Fisher information at the current estimate; ties go to the least-covered topic, then to a pick seeded by the assessment id. Selection is therefore deterministic, and the server recomputes the expected question on every request instead of storing it.
+- **Length:** fixed at 15 questions. A stop-at-target-precision rule was simulated and never triggered earlier with a 30-question bank, so it was removed.
+- **Scoring:** the score (0–100) is the expected share of the whole bank the person knows at the estimated ability, shown with a range of one standard error either side. Levels are one-logit bands on the ability scale. Results include a per-topic breakdown and a review of every question with its explanation.
+- **Server rules** (`src/assessment/service.ts`, tested against in-process Postgres): every query is scoped by the session user; an unanswered question is sent without its answer or explanation; only the expected next question is accepted, once; replays, stale forms and concurrent double submits are ignored.
+- **Verification:** unit tests for estimation, selection, termination and monotonicity; service tests for the rules above; `npm run simulate` writes `results/assessment-simulation.json`.
+- **Known limits:** difficulty levels are author-assigned and uncalibrated. The simulation tests the algorithm under its own model, not real-world validity. The bank is in a public repository, so this is a self-assessment tool, not a proctored exam.
 
 ## 6. Gemini usage
 
@@ -88,7 +91,7 @@ Gemini is used in exactly two places, both behind server-side routes. The API ke
 
 Chat request flow:
 1. Authenticate, validate, rate limit.
-2. Load the user's latest `skill_scores` and profile.
+2. Load the user's latest completed `assessment` results and profile.
 3. Retrieve the top-k `role_chunks` for the query.
 4. Build a prompt with a fixed system instruction, the user's results, and the retrieved passages as clearly delimited data.
 5. Call Gemini with a structured response (answer plus the passage ids it used).
@@ -109,7 +112,7 @@ Assets: user identities and profiles, assessment history, chat history, the Gemi
 | Broken access control (reading another user's data) | Every query scoped by session `user_id`; tests that attempt cross-user access |
 | Prompt injection via user text or retrieved content | Retrieved and user text passed as delimited data; citation validation; no tools or actions exposed to the model; output rendered as text, never as HTML |
 | Cost abuse / quota exhaustion | Per-user and per-IP rate limits, input and output token caps, daily spend alert |
-| Answer leakage (cheating the assessment) | `correct` never sent to the client before submission; explanations returned only after answering |
+| Answer leakage (cheating the assessment) | The answer and explanation are never sent to the client before the answer is recorded, and only the server-chosen question is accepted. The bank itself is public in this repository, so results are for self-assessment and must not be treated as proctored |
 | Injection (SQL, XSS) | Parameterised Drizzle queries, zod validation, React escaping, CSP header |
 | Secret leakage | Env vars only, `.env*` ignored, secret scanning in CI and GitHub push protection |
 | Dependency vulnerabilities | Dependabot, `npm audit` in CI |

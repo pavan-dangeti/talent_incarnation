@@ -2,16 +2,11 @@
 
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { auth, signOut } from "@/auth";
+import { signOut } from "@/auth";
 import { db } from "@/db";
 import { profiles, users } from "@/db/schema";
 import { parseProfileForm } from "@/lib/profile";
-
-async function requireUserId() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/");
-  return session.user.id;
-}
+import { requireUserId } from "@/lib/session";
 
 export async function saveProfile(form: FormData) {
   const userId = await requireUserId();
@@ -26,7 +21,7 @@ export async function saveProfile(form: FormData) {
   redirect("/profile?saved=1");
 }
 
-// Deleting the user row cascades to accounts, sessions and the profile.
+// Deleting the user row cascades to accounts, sessions, the profile and assessments.
 export async function deleteAccount() {
   const userId = await requireUserId();
   await db().delete(users).where(eq(users.id, userId));

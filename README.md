@@ -31,7 +31,7 @@ A career guidance platform that aims to help students and early-career people:
 |---|---|
 | Landing page | Minimal (sign-in entry point) |
 | Google sign-in, editable profile, account deletion | Built in Phase 1; not yet verified against a live Google client and Neon database (needs your credentials) |
-| Skill assessment: adaptive difficulty, explained scoring, original question bank for software engineering, data/AI and UI/UX design | Planned (Phase 2) |
+| Skill assessment: 15 adaptive questions per attempt, a score with an uncertainty range, topic breakdown and an explanation for every answer. Original bank of 90 questions (30 each for software engineering, data/AI and UI/UX design) | Built in Phase 2; full flow checked locally in a browser against the dev database |
 | Gemini career chatbot grounded in your results and a curated careers dataset, with citations | Planned (Phase 3) |
 | Skill-gap analysis and learning roadmap for a target role | Planned (Phase 4) |
 | Automated tests, accessibility and Lighthouse checks | Planned (Phase 5) |
@@ -39,7 +39,18 @@ A career guidance platform that aims to help students and early-career people:
 
 ## Measured results
 
-None yet. Numbers will be added here only when they come from a committed result file under `results/`.
+Every number here comes from a committed file under `results/`.
+
+**Assessment engine** ([results/assessment-simulation.json](results/assessment-simulation.json), reproduce with `npm run simulate`)
+
+10,000 synthetic learners per domain (2,000 at each of five ability levels) took the 15-question test, answering according to the engine's own response model.
+
+| | Adaptive selection | Random questions, same length |
+|---|---|---|
+| Error in estimated ability (RMSE, logits) | 0.675 | 0.74 |
+| Estimates within one level (1 logit) of the truth | 86.7% | 82.6% |
+
+What this does and does not show: the engine recovers a known ability better than random question selection, and its estimates rise with true ability. Estimates are pulled towards the middle for the weakest and strongest learners (bias of about 0.4 logits at the extremes). It is a check of the algorithm, not a validation against real learners: the difficulty level of each question was assigned by the author and has not been calibrated on real response data.
 
 ## Tech stack
 
@@ -80,7 +91,7 @@ Without them the app still builds and runs, but shows "Sign-in is not configured
 **Neon database** (Phase 1)
 1. Create a separate Neon project for this app.
 2. Copy the connection string into `DATABASE_URL`.
-3. Apply the migrations: `npm run db:migrate` (reads `DATABASE_URL` from the environment or `.env.local`, prints what it applied, verifies the tables, and exits non-zero on failure). After changing `src/db/schema.ts`, run `npm run db:generate` and commit the new SQL in `drizzle/`.
+3. Apply the migrations: `npm run db:migrate` (reads `DATABASE_URL` from the environment or `.env.local`, prints what it applied, verifies the tables, and exits non-zero on failure). After changing `src/db/schema.ts`, run `npm run db:generate` and commit the new SQL in `drizzle/`. `npm run db:check` tests the connection through the app's own driver.
 
 **Gemini API key** (Phase 3)
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:check": "tsx scripts/db-check.mts"
+    "db:check": "tsx scripts/db-check.mts",
+    "simulate": "tsx scripts/simulate-assessment.mts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
