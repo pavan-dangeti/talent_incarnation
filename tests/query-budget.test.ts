@@ -1,18 +1,15 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { BANK } from "../src/assessment/bank";
 import { TEST_LENGTH } from "../src/assessment/engine";
 import { getAssessment, listAssessments, startAssessment, submitAnswer } from "../src/assessment/service";
 import { listMessages, sendMessage } from "../src/chat/service";
 import * as schema from "../src/db/schema";
+import { createTestDb } from "./test-db";
 
 // Every query is a network round trip to the database in production, so the
 // number of queries per request is a latency budget. These tests pin it.
 let queries = 0;
-const client = new PGlite();
-const db = drizzle(client, { schema, logger: { logQuery: () => void (queries += 1) } });
+const db = createTestDb({ logger: { logQuery: () => void (queries += 1) } });
 let userId: string;
 
 async function count(run: () => Promise<unknown>) {
@@ -22,10 +19,8 @@ async function count(run: () => Promise<unknown>) {
 }
 
 beforeAll(async () => {
-  await migrate(db, { migrationsFolder: "./drizzle" });
   [{ id: userId }] = await db.insert(schema.users).values({ email: "q@example.com" }).returning();
 });
-afterAll(() => client.close());
 
 describe("database queries per request (excluding the one session lookup)", () => {
   it("stays within budget", async () => {

@@ -1,19 +1,11 @@
-import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as schema from "../src/db/schema";
+import { createTestDb } from "./test-db";
 
 // Applies the checked-in SQL migrations to an empty in-process Postgres.
 describe("migrations", () => {
-  const client = new PGlite();
-  const db = drizzle(client, { schema });
-
-  beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "./drizzle" });
-  });
-  afterAll(() => client.close());
+  const db = createTestDb();
 
   it("apply from scratch and enforce one profile per user", async () => {
     const [user] = await db.insert(schema.users).values({ email: "a@example.com" }).returning();

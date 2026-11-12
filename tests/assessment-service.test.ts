@@ -1,8 +1,5 @@
-import { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { BANK } from "../src/assessment/bank";
 import { TEST_LENGTH } from "../src/assessment/engine";
 import {
@@ -12,21 +9,19 @@ import {
   submitAnswer,
 } from "../src/assessment/service";
 import * as schema from "../src/db/schema";
+import { createTestDb } from "./test-db";
 
-const client = new PGlite();
-const db = drizzle(client, { schema });
+const db = createTestDb();
 let alice: string;
 let bob: string;
 
 beforeAll(async () => {
-  await migrate(db, { migrationsFolder: "./drizzle" });
   const rows = await db
     .insert(schema.users)
     .values([{ email: "alice@example.com" }, { email: "bob@example.com" }])
     .returning();
   [alice, bob] = rows.map((r) => r.id);
 });
-afterAll(() => client.close());
 
 const correctChoice = (questionId: string) =>
   BANK.software.find((q) => q.id === questionId)!.correct;
