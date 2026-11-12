@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { getAssessment, type AssessmentView, type Reviewed } from "@/assessment/service";
 import { DOMAIN_LABELS } from "@/assessment/types";
+import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/db";
 import { requireUserId } from "@/lib/session";
 import { answer } from "../actions";
@@ -105,9 +106,11 @@ function InProgress({
             ))}
           </div>
         </fieldset>
-        <button className="btn btn-primary mt-6">
-          {number === view.totalQuestions ? "Submit and see results" : "Submit answer"}
-        </button>
+        <div className="mt-6">
+          <SubmitButton pendingLabel="Saving…">
+            {number === view.totalQuestions ? "Submit and see results" : "Submit answer"}
+          </SubmitButton>
+        </div>
       </form>
     </>
   );

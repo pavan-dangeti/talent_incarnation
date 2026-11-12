@@ -29,7 +29,7 @@ Browser ── Next.js UI (React Server + Client Components)
               │       ├─ Gap/roadmap engine (pure TS module)
               │       └─ Chat service ── retrieval ── Gemini API
               │
-              └─ Postgres (+ pgvector)  ── Drizzle ORM + SQL migrations
+              └─ Neon Postgres          ── Drizzle ORM + SQL migrations
 ```
 
 Choices (each can be challenged before Phase 1):
@@ -38,11 +38,11 @@ Choices (each can be challenged before Phase 1):
 |---|---|---|
 | Framework | Latest stable Next.js, React, TypeScript strict | Already the stack; Phase 0 upgrades it |
 | Auth | Auth.js v5 (`next-auth@beta`, still a beta tag on npm) with Google provider, database sessions | Required Google sign-in; v4 is stable but older. Revisit when v5 ships a stable tag |
-| Database | Neon Postgres (separate project), pgvector for embeddings | One store for relational data and vectors; no extra vector service |
+| Database | Neon Postgres (separate project) | Relational data only; retrieval runs in-process, so no vector extension is needed yet |
 | ORM / migrations | Drizzle with checked-in SQL migrations | Typed queries, reviewable migrations |
 | Validation | zod at every trust boundary | Single source for request types |
-| LLM | Gemini API through the official Google GenAI SDK, model names in env vars | Google Solution Challenge context; models change, so nothing is hard-coded |
-| Rate limiting | Per-user and per-IP limiter backed by Postgres or a Marketplace Redis | Protects Gemini quota and cost |
+| LLM | Gemini API through the official Google GenAI SDK (`@google/genai`), model id in an env var | Google Solution Challenge context; models change, so nothing is hard-coded |
+| Rate limiting | Per-user limits counted from stored chat messages | Protects Gemini quota and cost with no extra store |
 | Tests | Vitest (unit, API), Playwright (e2e, axe accessibility), Lighthouse CI | Phase 5 |
 | CI | GitHub Actions: lint, typecheck, test, build | Phase 0 |
 | Errors / monitoring | Sentry (or equivalent) plus Vercel logs | Phase 6 |
@@ -58,16 +58,13 @@ Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`account
 | `users` | email (unique), name, image | Auth.js user |
 | `profiles` | user_id (unique FK), education_level, target_role_id, interests[] | 1:1 with user; user-editable |
 | `domains` | slug, name | e.g. software, data, design; seeded |
-| `skills` | slug, name, domain_id | |
 | (question bank) | id, domain, topic, difficulty (1–5), prompt, options, correct, explanation | Not a table: versioned TypeScript data in `src/assessment/bank`, original content, validated by tests. Answers reference the stable question id |
 | `assessment` | user_id, domain, status, started_at, completed_at, theta, se, score, level | One attempt; the result is written once on completion, so history is preserved. Check constraints on domain and status; a partial unique index allows one unfinished attempt per user and domain |
 | `assessment_answer` | assessment_id, position, question_id, choice, is_correct, answered_at | Ordered log. Primary key (assessment_id, position) and unique (assessment_id, question_id) make double submits a no-op |
-| `roles` | slug, title, summary, source_urls[] | Curated careers dataset |
-| `role_skills` | role_id, skill_id, required_level, weight | Defines the target profile |
-| `role_chunks` | role_id, content, embedding vector, source_url, chunk_index | RAG corpus |
-| `chat_threads` / `chat_messages` | user_id, role (user/assistant), content, citations (jsonb), model, tokens | Retained so evals and abuse review are possible |
+| (role skill targets) | role id, assessment topic, required level | Planned for Phase 4, as data alongside the careers dataset |
+| (careers dataset) | role id, title, domain, sections | Not a table: versioned TypeScript data in `src/careers/dataset.ts`, split into passages with stable ids |
+| `chat_message` | user_id, role (user/assistant), content, citations (jsonb passage ids), abstained, created_at | One conversation per user; also the source for rate limiting |
 | `roadmaps` | user_id, role_id, generated_from_score_ids[], items (jsonb) | Versioned, deterministic output |
-| `rate_limits` | key, window_start, count | If Postgres-backed |
 
 Rules: every user-owned row is accessed only through queries scoped by `user_id` from the session. Account deletion cascades.
 
@@ -82,25 +79,23 @@ Rules: every user-owned row is accessed only through queries scoped by `user_id`
 - **Verification:** unit tests for estimation, selection, termination and monotonicity; service tests for the rules above; `npm run simulate` writes `results/assessment-simulation.json`.
 - **Known limits:** difficulty levels are author-assigned and uncalibrated. The simulation tests the algorithm under its own model, not real-world validity. The bank is in a public repository, so this is a self-assessment tool, not a proctored exam.
 
-## 6. Gemini usage
+## 6. Career chatbot and Gemini usage (Phase 3, built; live model not yet evaluated)
 
-Gemini is used in exactly two places, both behind server-side routes. The API key lives only in server environment variables.
+Gemini is used in one place: generating the chatbot's answer, behind a server action. The key lives only in server environment variables, and the model id comes from `GEMINI_CHAT_MODEL`.
 
-1. **Embeddings** for the curated careers corpus and for user queries (retrieval).
-2. **Generation** for the career chatbot, with streaming responses.
-
-Chat request flow:
-1. Authenticate, validate, rate limit.
-2. Load the user's latest completed `assessment` results and profile.
-3. Retrieve the top-k `role_chunks` for the query.
-4. Build a prompt with a fixed system instruction, the user's results, and the retrieved passages as clearly delimited data.
-5. Call Gemini with a structured response (answer plus the passage ids it used).
-6. Server checks that every citation id was in the retrieved set, and drops or rejects uncited factual claims; the UI shows citations.
-7. Store the exchange.
-
-Guardrails: scope limited to careers and learning; refuse to invent salaries, company-specific facts or guarantees not in the retrieved text, and say so; no medical, legal or financial advice; maximum input length; safety settings enabled.
-
-**Evaluation (Phase 3):** a committed eval set of questions with reference answers and expected source passages, covering in-scope questions, questions with no answer in the corpus (must abstain), and adversarial prompts. Metrics: retrieval hit rate, citation validity, answer correctness (rubric-graded, with the grading method documented), abstention rate on unanswerable items, injection resistance. Output is a JSON file in `results/` with model name, date and commit. Only those numbers may appear in the README.
+- **Dataset** (`src/careers/dataset.ts`): original summaries of 13 roles across the three domains, five sections each, plus 4 comparison guides: 69 passages. It contains no salaries, statistics or company names, and a test enforces that.
+- **Retrieval** (`src/chat/retrieval.ts`): BM25 in-process, with the role title scored as a separate field. This replaces the embeddings and pgvector originally planned: for 69 passages it needs no key, no extension and no index build, and it is deterministic, so CI measures it. Revisit when the corpus grows or paraphrased questions start missing.
+- **Request flow** (`src/chat/service.ts`, `src/chat/answer.ts`):
+  1. Authenticate, validate length (500 characters), check the rate limit (20 per hour, 60 per day per user).
+  2. Retrieve the top 4 passages. If nothing clears the relevance threshold, reply with a fixed abstention and do not call the model.
+  3. Build the prompt: fixed system instruction, then the user's profile and latest result per domain, the last few turns, the passages and the question, each in a delimited section with angle brackets escaped so that data cannot open or close a section.
+  4. Ask Gemini for JSON: answer, cited passage ids, abstained.
+  5. Validate on the server: ids not among the retrieved passages are dropped, and an answer left with no valid citation is replaced by an abstention.
+  6. Store both messages; the UI shows the cited passages in full.
+- **Not streaming:** the answer is validated as a whole before it is shown, which rules out streaming tokens to the page.
+- **Guardrails:** careers and learning only; no salaries, hiring numbers, company names or guarantees; no medical, legal or financial advice; instructions inside user text or passages are treated as data; output rendered as plain text.
+- **Evaluation:** `evals/chat-eval.json` has 56 questions: 38 answerable (12 held out from tuning), 8 unanswerable, 4 off-topic and 6 adversarial. `npm run eval:retrieval` (no key, checked in CI) writes `results/retrieval-eval.json`. `npm run eval:chat` (live model) writes `results/chat-eval.json` with correctness, abstention, injection resistance and raw citation validity; grading is by substring and citation checks, documented in the script with its limits.
+- **Known limits:** answer quality is unmeasured until the live evaluation is run. The evaluation set is small and self-authored. The rate limit is count-then-insert, so two simultaneous requests can exceed it by one.
 
 ## 7. Threat model
 

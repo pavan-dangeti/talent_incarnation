@@ -15,6 +15,13 @@
       "when": 1794402196688,
       "tag": "0001_assessments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794450348198,
+      "tag": "0002_chat",
+      "breakpoints": true
     }
   ]
 }

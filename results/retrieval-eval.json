@@ -1,0 +1,54 @@
+{
+  "description": "BM25 retrieval over the curated careers dataset, measured on evals/chat-eval.json. A hit means at least one expected passage is in the top k. Retrieval was tuned on the development split only; the heldout split is the number to trust. The gate rows show how many non-answerable questions retrieval alone rejects; the rest rely on the model abstaining.",
+  "baseCommit": "afbfbf8",
+  "generatedOn": "2026-11-12",
+  "config": {
+    "passages": 69,
+    "topK": 4,
+    "minScore": 3
+  },
+  "development": {
+    "total": 26,
+    "hitAtK": 0.962,
+    "hitAt1": 0.808,
+    "meanReciprocalRank": 0.885,
+    "misses": [
+      {
+        "id": "a20",
+        "question": "What should my first projects be as a UI designer?",
+        "retrieved": [
+          "product-designer#overview",
+          "ui-designer#overview",
+          "ui-designer#related",
+          "ui-designer#skills"
+        ]
+      }
+    ]
+  },
+  "heldout": {
+    "total": 12,
+    "hitAtK": 1,
+    "hitAt1": 0.667,
+    "meanReciprocalRank": 0.813,
+    "misses": []
+  },
+  "offTopic": {
+    "total": 4,
+    "rejectedBeforeModel": 4,
+    "passedToModel": []
+  },
+  "unanswerable": {
+    "total": 8,
+    "rejectedBeforeModel": 0,
+    "passedToModel": [
+      "u01",
+      "u02",
+      "u03",
+      "u04",
+      "u05",
+      "u06",
+      "u07",
+      "u08"
+    ]
+  }
+}

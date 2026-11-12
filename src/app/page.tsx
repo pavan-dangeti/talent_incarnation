@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { auth, authConfigured, signIn } from "@/auth";
+import { authConfigured, signIn } from "@/auth";
 import { TEST_LENGTH } from "@/assessment/engine";
 import { DOMAINS, DOMAIN_LABELS } from "@/assessment/types";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,8 @@ const STEPS = [
   },
   {
     title: "Ask",
-    status: "Planned",
-    body: "A career chatbot grounded in your results and a curated careers dataset, with citations.",
+    status: "Available",
+    body: "A career chatbot that answers only from a curated careers dataset and your results, and shows the passages it used.",
   },
   {
     title: "Plan",
@@ -24,7 +25,7 @@ const STEPS = [
 ];
 
 export default async function Home() {
-  const session = authConfigured ? await auth() : null;
+  const session = await getSession();
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 sm:py-20">

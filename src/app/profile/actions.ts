@@ -21,9 +21,12 @@ export async function saveProfile(form: FormData) {
   redirect("/profile?saved=1");
 }
 
-// Deleting the user row cascades to accounts, sessions, the profile and assessments.
-export async function deleteAccount() {
+// Deleting the user row cascades to accounts, sessions, the profile,
+// assessments and chat messages. The confirmation is checked on the server
+// too, because the form's `required` attribute is only a browser hint.
+export async function deleteAccount(form: FormData) {
   const userId = await requireUserId();
+  if (form.get("confirm") !== "on") redirect("/profile?error=confirm");
   await db().delete(users).where(eq(users.id, userId));
   await signOut({ redirectTo: "/" });
 }

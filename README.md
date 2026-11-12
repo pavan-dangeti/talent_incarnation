@@ -32,7 +32,7 @@ A career guidance platform that aims to help students and early-career people:
 | Landing page | Minimal (sign-in entry point) |
 | Google sign-in, editable profile, account deletion | Built in Phase 1; not yet verified against a live Google client and Neon database (needs your credentials) |
 | Skill assessment: 15 adaptive questions per attempt, a score with an uncertainty range, topic breakdown and an explanation for every answer. Original bank of 90 questions (30 each for software engineering, data/AI and UI/UX design) | Built in Phase 2; full flow checked locally in a browser against the dev database |
-| Gemini career chatbot grounded in your results and a curated careers dataset, with citations | Planned (Phase 3) |
+| Career chatbot (Gemini): answers only from a curated careers dataset (13 roles, 69 passages) and your results, cites the passages it used, abstains when it has no support, with per-user rate limits | Built in Phase 3. Retrieval, citation checking, guardrails and rate limits are tested. **Not yet run against a live model**: it needs `GEMINI_API_KEY` and `GEMINI_CHAT_MODEL`, so answer quality is unmeasured |
 | Skill-gap analysis and learning roadmap for a target role | Planned (Phase 4) |
 | Automated tests, accessibility and Lighthouse checks | Planned (Phase 5) |
 | Security review, monitoring, error tracking | Planned (Phase 6) |
@@ -52,6 +52,19 @@ Every number here comes from a committed file under `results/`.
 
 What this does and does not show: the engine recovers a known ability better than random question selection, and its estimates rise with true ability. Estimates are pulled towards the middle for the weakest and strongest learners (bias of about 0.4 logits at the extremes). It is a check of the algorithm, not a validation against real learners: the difficulty level of each question was assigned by the author and has not been calibrated on real response data.
 
+**Chatbot retrieval** ([results/retrieval-eval.json](results/retrieval-eval.json), reproduce with `npm run eval:retrieval`)
+
+Whether the right passage is found for a question, measured on [evals/chat-eval.json](evals/chat-eval.json) without calling any model.
+
+| | Development questions (26) | Held-out questions (12) |
+|---|---|---|
+| An expected passage is in the top 4 | 96.2% | 100% |
+| An expected passage is ranked first | 80.8% | 66.7% |
+
+Retrieval was tuned on the development questions only; the held-out questions were written before tuning and never used for it. Both sets are small and were written by the same person who wrote the dataset, so treat these as a sanity check, not a benchmark. Retrieval alone rejects all 4 off-topic questions but none of the 8 career questions the dataset cannot answer; those depend on the model abstaining.
+
+**Chatbot answers:** not measured yet. `npm run eval:chat` runs the same 56 questions (answerable, unanswerable, off-topic and adversarial) through the live model and writes `results/chat-eval.json`. Until that file is committed, no claim is made about answer accuracy, abstention or resistance to prompt injection.
+
 ## Tech stack
 
 | Technology | Status |
@@ -59,7 +72,7 @@ What this does and does not show: the engine recovers a known ability better tha
 | Next.js (App Router), TypeScript, Tailwind CSS, Vercel | In use |
 | Auth.js (v5 beta) with Google sign-in, database sessions | In use (Phase 1) |
 | Neon Postgres with Drizzle migrations | In use (Phase 1); pgvector arrives with Phase 3 |
-| Gemini API (embeddings and generation) | Planned |
+| Gemini API for generation, with BM25 retrieval in-process | Built (Phase 3), awaiting a key |
 
 ## Getting started
 
@@ -80,7 +93,7 @@ Secrets are read from environment variables and are never committed. Copy the te
 cp .env.example .env.local
 ```
 
-Without them the app still builds and runs, but shows "Sign-in is not configured". `GEMINI_*` is not used until Phase 3.
+Without them the app still builds and runs, but shows "Sign-in is not configured". Without `GEMINI_API_KEY` and `GEMINI_CHAT_MODEL` the chat page shows "Chat is not configured".
 
 **Google OAuth client** (Phase 1)
 1. In [Google Cloud Console](https://console.cloud.google.com/), create or pick a project, then go to APIs & Services → OAuth consent screen and configure it.
@@ -95,7 +108,8 @@ Without them the app still builds and runs, but shows "Sign-in is not configured
 
 **Gemini API key** (Phase 3)
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. Put it in `GEMINI_API_KEY`.
+2. Put it in `GEMINI_API_KEY`, and set `GEMINI_CHAT_MODEL` to a current model id from the [model list](https://ai.google.dev/gemini-api/docs/models). No model id is hard-coded.
+3. Run `npm run eval:chat` and commit `results/chat-eval.json` to measure answer quality.
 
 On Vercel, add the same names under Project → Settings → Environment Variables. Do not paste keys into issues, PRs or chats.
 

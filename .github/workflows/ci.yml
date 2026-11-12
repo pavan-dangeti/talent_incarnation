@@ -34,7 +34,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       # the committed simulation results must match what the code produces
-      - run: npm run simulate && git diff --exit-code -I baseCommit -I generatedOn results/
+      - run: npm run simulate && npm run eval:retrieval && git diff --exit-code -I baseCommit -I generatedOn results/
       # fresh database: apply migrations and verify the auth tables exist, then re-run to prove idempotence
       - run: npm run db:migrate
       - run: npm run db:migrate

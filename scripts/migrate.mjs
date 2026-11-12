@@ -30,6 +30,7 @@ const REQUIRED_TABLES = [
   "profile",
   "assessment",
   "assessment_answer",
+  "chat_message",
 ];
 const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8"));
 const pool = new pg.Pool({ connectionString: url, max: 1 });

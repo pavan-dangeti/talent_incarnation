@@ -12,10 +12,13 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "db:check": "tsx scripts/db-check.mts",
-    "simulate": "tsx scripts/simulate-assessment.mts"
+    "simulate": "tsx scripts/simulate-assessment.mts",
+    "eval:retrieval": "tsx scripts/eval-retrieval.mts",
+    "eval:chat": "tsx scripts/eval-chat.mts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
+    "@google/genai": "^3.2.0",
     "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "next": "^16.4.3",

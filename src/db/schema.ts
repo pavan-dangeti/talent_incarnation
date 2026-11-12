@@ -2,7 +2,9 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -122,5 +124,25 @@ export const assessmentAnswers = pgTable(
     primaryKey({ columns: [t.assessmentId, t.position] }),
     unique("assessment_answer_question_once").on(t.assessmentId, t.questionId),
     check("assessment_answer_choice_check", sql`${t.choice} between 0 and 3`),
+  ],
+);
+
+// One continuous conversation per user. Assistant rows store the cited passage ids.
+export const chatMessages = pgTable(
+  "chat_message",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    citations: jsonb("citations").$type<string[]>().notNull().default([]),
+    abstained: boolean("abstained").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("chat_message_role_check", sql`${t.role} in ('user', 'assistant')`),
+    index("chat_message_user_created").on(t.userId, t.createdAt),
   ],
 );
