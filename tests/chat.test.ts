@@ -1,7 +1,4 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { PASSAGES } from "../src/careers/dataset";
 import {
   MAX_QUESTION_LENGTH,
@@ -22,6 +19,7 @@ import {
   sendMessage,
 } from "../src/chat/service";
 import * as schema from "../src/db/schema";
+import { createTestDb } from "./test-db";
 
 const noContext: UserContext = { targetRole: null, educationLevel: null, results: [] };
 const reply = (o: object): Generate => async () => JSON.stringify(o);
@@ -119,22 +117,19 @@ describe("buildPrompt", () => {
 });
 
 describe("chat service", () => {
-  const client = new PGlite();
-  const db = drizzle(client, { schema });
+  const db = createTestDb();
   let alice: string;
   let bob: string;
   const good = reply({ answer: "They build interfaces.", citations: ["frontend-developer#overview"], abstained: false });
   const ask = "What does a frontend developer do?";
 
   beforeAll(async () => {
-    await migrate(db, { migrationsFolder: "./drizzle" });
     const rows = await db
       .insert(schema.users)
       .values([{ email: "alice@example.com" }, { email: "bob@example.com" }])
       .returning();
     [alice, bob] = rows.map((r) => r.id);
   });
-  afterAll(() => client.close());
 
   it("stores the question and the grounded answer, scoped to the user", async () => {
     expect(await sendMessage(db, alice, `  ${ask}  `, good)).toBe("answered");
