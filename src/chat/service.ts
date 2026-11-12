@@ -84,7 +84,9 @@ async function withinLimits(db: Db, userId: string, now: Date): Promise<boolean>
     .returning({ count: chatUsage.count });
   if (count > HOURLY_LIMIT) return false;
 
-  const dayAgo = new Date(now.getTime() - 24 * HOUR);
+  // Aligned down to a window boundary, so the window that straddles the
+  // 24-hour mark is counted in full rather than dropped.
+  const dayAgo = new Date(windowStart.getTime() - 24 * HOUR);
   const [{ total }] = await db
     .select({ total: sql<number>`coalesce(sum(${chatUsage.count}), 0)::int` })
     .from(chatUsage)

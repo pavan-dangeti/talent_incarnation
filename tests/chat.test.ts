@@ -222,6 +222,16 @@ describe("chat service", () => {
     expect(await sendMessage(db, carol.id, ask, good, new Date(start + 30 * 3_600_000))).toBe("answered");
   });
 
+  it("counts the hour that straddles the 24-hour mark towards the daily limit", async () => {
+    const [dave] = await db.insert(schema.users).values({ email: "dave@example.com" }).returning();
+    const at = (iso: string) => new Date(iso);
+    // 20 late in yesterday's 10:00 hour, then 20 in each of two later hours: 60 in under 24 hours.
+    for (const time of ["2026-07-01T10:50:00Z", "2026-07-01T15:00:00Z", "2026-07-02T09:00:00Z"]) {
+      for (let i = 0; i < HOURLY_LIMIT; i++) expect(await sendMessage(db, dave.id, ask, good, at(time))).toBe("answered");
+    }
+    expect(await sendMessage(db, dave.id, ask, good, at("2026-07-02T10:30:00Z"))).toBe("rate_limited");
+  });
+
   it("clears only the caller's conversation", async () => {
     await clearMessages(db, bob);
     expect(await listMessages(db, bob)).toEqual([]);
