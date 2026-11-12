@@ -48,12 +48,14 @@ export async function listMessages(db: Db, userId: string, limit = 50): Promise<
 }
 
 async function userContext(db: Db, userId: string): Promise<UserContext> {
-  const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId));
-  const completed = await db
-    .select({ domain: assessments.domain, score: assessments.score, level: assessments.level })
-    .from(assessments)
-    .where(and(eq(assessments.userId, userId), eq(assessments.status, "completed")))
-    .orderBy(asc(assessments.completedAt));
+  const [[profile], completed] = await Promise.all([
+    db.select().from(profiles).where(eq(profiles.userId, userId)),
+    db
+      .select({ domain: assessments.domain, score: assessments.score, level: assessments.level })
+      .from(assessments)
+      .where(and(eq(assessments.userId, userId), eq(assessments.status, "completed")))
+      .orderBy(asc(assessments.completedAt)),
+  ]);
   // Later rows overwrite earlier ones, leaving the latest result per domain.
   const latest = new Map(completed.map((a) => [a.domain, a]));
   return {
@@ -87,12 +89,14 @@ async function withinLimits(db: Db, userId: string, now: Date): Promise<boolean>
   // Aligned down to a window boundary, so the window that straddles the
   // 24-hour mark is counted in full rather than dropped.
   const dayAgo = new Date(windowStart.getTime() - 24 * HOUR);
-  const [{ total }] = await db
-    .select({ total: sql<number>`coalesce(sum(${chatUsage.count}), 0)::int` })
-    .from(chatUsage)
-    .where(and(eq(chatUsage.userId, userId), gte(chatUsage.windowStart, dayAgo)));
-  // Old windows are no longer needed for any check.
-  await db.delete(chatUsage).where(and(eq(chatUsage.userId, userId), lt(chatUsage.windowStart, dayAgo)));
+  const [[{ total }]] = await Promise.all([
+    db
+      .select({ total: sql<number>`coalesce(sum(${chatUsage.count}), 0)::int` })
+      .from(chatUsage)
+      .where(and(eq(chatUsage.userId, userId), gte(chatUsage.windowStart, dayAgo))),
+    // Old windows are no longer needed for any check.
+    db.delete(chatUsage).where(and(eq(chatUsage.userId, userId), lt(chatUsage.windowStart, dayAgo))),
+  ]);
   return total <= DAILY_LIMIT;
 }
 
@@ -111,38 +115,38 @@ export async function sendMessage(
 
   if (!(await withinLimits(db, userId, now))) return "rate_limited";
 
-  const history: Turn[] = (await listMessages(db, userId, HISTORY_TURNS)).map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-  await db.insert(chatMessages).values({ userId, role: "user", content: question, createdAt: now });
+  // The attempt is already counted, so the question and its reply can be
+  // written together in one statement once the reply exists.
+  const [recent, context] = await Promise.all([
+    listMessages(db, userId, HISTORY_TURNS),
+    userContext(db, userId),
+  ]);
+  const history: Turn[] = recent.map((m) => ({ role: m.role, content: m.content }));
   // Both rows are stamped from the application clock: mixing it with the
   // database clock could sort a reply before its question.
   const started = Date.now();
-  const repliedAt = () => new Date(now.getTime() + Math.max(1, Date.now() - started));
+  const save = (reply: { content: string; citations?: string[]; abstained: boolean }) =>
+    db.insert(chatMessages).values([
+      { userId, role: "user", content: question, createdAt: now },
+      {
+        userId,
+        role: "assistant",
+        ...reply,
+        createdAt: new Date(now.getTime() + Math.max(1, Date.now() - started)),
+      },
+    ]);
 
   try {
-    const result = await answerQuestion(question, await userContext(db, userId), history, generate);
-    await db.insert(chatMessages).values({
-      userId,
-      role: "assistant",
+    const result = await answerQuestion(question, context, history, generate);
+    await save({
       content: result.answer,
       citations: result.citations.map((p) => p.id),
       abstained: result.abstained,
-      createdAt: repliedAt(),
     });
     return "answered";
   } catch (err) {
     console.error("chat: model call failed:", err instanceof Error ? err.message : err);
-    await db
-      .insert(chatMessages)
-      .values({
-        userId,
-        role: "assistant",
-        content: MODEL_ERROR_ANSWER,
-        abstained: true,
-        createdAt: repliedAt(),
-      });
+    await save({ content: MODEL_ERROR_ANSWER, abstained: true });
     return "model_error";
   }
 }

@@ -4,7 +4,15 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "@/db/schema";
 import { BANK } from "./bank";
-import { TEST_LENGTH, progress, score, topicBreakdown, type Score, type TopicResult } from "./engine";
+import {
+  TEST_LENGTH,
+  progress,
+  score,
+  topicBreakdown,
+  type Estimate,
+  type Score,
+  type TopicResult,
+} from "./engine";
 import type { Domain, Question } from "./types";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -56,16 +64,20 @@ export async function startAssessment(db: Db, userId: string, domain: Domain): P
 }
 
 async function load(db: Db, userId: string, id: string) {
-  const [assessment] = await db
-    .select()
-    .from(assessments)
-    .where(and(eq(assessments.id, id), eq(assessments.userId, userId)));
+  // Independent queries, run together. The answers are only returned if the
+  // ownership check on the assessment row passes.
+  const [[assessment], answers] = await Promise.all([
+    db
+      .select()
+      .from(assessments)
+      .where(and(eq(assessments.id, id), eq(assessments.userId, userId))),
+    db
+      .select()
+      .from(assessmentAnswers)
+      .where(eq(assessmentAnswers.assessmentId, id))
+      .orderBy(asc(assessmentAnswers.position)),
+  ]);
   if (!assessment) return null;
-  const answers = await db
-    .select()
-    .from(assessmentAnswers)
-    .where(eq(assessmentAnswers.assessmentId, id))
-    .orderBy(asc(assessmentAnswers.position));
   return { assessment, answers };
 }
 
@@ -100,19 +112,8 @@ export async function getAssessment(db: Db, userId: string, id: string): Promise
   const result = score(bank, p.estimate);
   let completedAt = assessment.completedAt;
   if (assessment.status !== "completed") {
-    // Also repairs an attempt whose last answer was saved but never finalised.
-    completedAt = new Date();
-    await db
-      .update(assessments)
-      .set({
-        status: "completed",
-        completedAt,
-        theta: p.estimate.theta,
-        se: p.estimate.se,
-        score: result.score,
-        level: result.level,
-      })
-      .where(and(eq(assessments.id, id), eq(assessments.status, "in_progress")));
+    // Repairs an attempt whose last answer was saved but never finalised.
+    completedAt = await finalise(db, id, p.estimate, result);
   }
   return {
     ...base,
@@ -121,6 +122,22 @@ export async function getAssessment(db: Db, userId: string, id: string): Promise
     topics: topicBreakdown(bank, responses),
     completedAt: completedAt!,
   };
+}
+
+async function finalise(db: Db, id: string, estimate: Estimate, result: Score): Promise<Date> {
+  const completedAt = new Date();
+  await db
+    .update(assessments)
+    .set({
+      status: "completed",
+      completedAt,
+      theta: estimate.theta,
+      se: estimate.se,
+      score: result.score,
+      level: result.level,
+    })
+    .where(and(eq(assessments.id, id), eq(assessments.status, "in_progress")));
+  return completedAt;
 }
 
 export type SubmitOutcome = "recorded" | "ignored" | "not_found";
@@ -155,8 +172,16 @@ export async function submitAnswer(
     .returning({ position: assessmentAnswers.position });
   if (inserted.length === 0) return "ignored";
 
-  // Finalises the attempt if that was the last question.
-  await getAssessment(db, userId, id);
+  // The last answer completes the attempt: score it from what is already loaded.
+  if (view.answeredCount + 1 >= view.totalQuestions) {
+    const bank = BANK[view.domain];
+    const responses = [
+      ...view.answered.map((a) => ({ questionId: a.question.id, correct: a.correct })),
+      { questionId, correct: choice === question.correct },
+    ];
+    const { estimate } = progress(bank, responses, id);
+    await finalise(db, id, estimate, score(bank, estimate));
+  }
   return "recorded";
 }
 

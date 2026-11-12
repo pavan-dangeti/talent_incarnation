@@ -14,7 +14,8 @@
     "db:check": "tsx scripts/db-check.mts",
     "simulate": "tsx scripts/simulate-assessment.mts",
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
-    "eval:chat": "tsx scripts/eval-chat.mts"
+    "eval:chat": "tsx scripts/eval-chat.mts",
+    "latency": "node scripts/measure-latency.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
