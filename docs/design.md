@@ -106,6 +106,7 @@ Assets: user identities and profiles, assessment history, chat history, the Gemi
 |---|---|
 | Account takeover / session theft | Google OAuth only, Auth.js secure cookies (httpOnly, SameSite), CSRF protection, HTTPS |
 | Broken access control (reading another user's data) | Every query scoped by session `user_id`; tests that attempt cross-user access |
+| Protected content sent to signed-out visitors | `src/proxy.ts` redirects any request without a session cookie before rendering, so it gets a real 307 and no page body. A request with an invalid cookie may receive the streamed page shell (title, header, loading skeleton) and an in-body redirect, but never page data: every page and action validates the session against the database first. `npm run check:signed-out` inspects the full response bodies in CI |
 | Prompt injection via user text or retrieved content | Retrieved and user text passed as delimited data; citation validation; no tools or actions exposed to the model; output rendered as text, never as HTML |
 | Cost abuse / quota exhaustion | Per-user and per-IP rate limits, input and output token caps, daily spend alert |
 | Answer leakage (cheating the assessment) | The answer and explanation are never sent to the client before the answer is recorded, and only the server-chosen question is accepted. The bank itself is public in this repository, so results are for self-assessment and must not be treated as proctored |

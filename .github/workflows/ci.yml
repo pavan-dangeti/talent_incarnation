@@ -39,4 +39,6 @@ jobs:
       - run: npm run db:migrate
       - run: npm run db:migrate
       - run: npm run build
+      # full response bodies of protected pages for signed-out requests: real redirect, no protected content
+      - run: npm run check:signed-out
       - run: npm audit --audit-level=high
