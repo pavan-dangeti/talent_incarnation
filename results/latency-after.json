@@ -1,0 +1,122 @@
+{
+  "description": "Time to first byte measured with curl from the developer's machine. serverMs excludes connection and TLS setup. The first row after idle includes the function and database waking up; that database cold start is a free-tier behaviour, not application code.",
+  "base": "https://talent-incarnation.vercel.app",
+  "measuredOn": "2026-11-12T13:52:34.855Z",
+  "repeats": 5,
+  "warm": [
+    {
+      "path": "/",
+      "variant": "anonymous",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 204,
+        "min": 175,
+        "max": 219
+      },
+      "ttfbMs": {
+        "median": 375
+      }
+    },
+    {
+      "path": "/assessment",
+      "variant": "anonymous",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 203,
+        "min": 184,
+        "max": 205
+      },
+      "ttfbMs": {
+        "median": 381
+      }
+    },
+    {
+      "path": "/profile",
+      "variant": "anonymous",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 193,
+        "min": 172,
+        "max": 244
+      },
+      "ttfbMs": {
+        "median": 367
+      }
+    },
+    {
+      "path": "/",
+      "variant": "invalid-session",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 207,
+        "min": 186,
+        "max": 241
+      },
+      "ttfbMs": {
+        "median": 387
+      }
+    },
+    {
+      "path": "/assessment",
+      "variant": "invalid-session",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 199,
+        "min": 172,
+        "max": 252
+      },
+      "ttfbMs": {
+        "median": 367
+      }
+    },
+    {
+      "path": "/profile",
+      "variant": "invalid-session",
+      "status": 200,
+      "functionRegion": "sin1",
+      "edgeRegion": "bom1",
+      "serverMs": {
+        "median": 203,
+        "min": 165,
+        "max": 395
+      },
+      "ttfbMs": {
+        "median": 372
+      }
+    }
+  ],
+  "afterIdle": [
+    {
+      "path": "/",
+      "variant": "invalid-session",
+      "status": 200,
+      "serverMs": 1934,
+      "ttfbMs": 2163
+    },
+    {
+      "path": "/assessment",
+      "variant": "invalid-session",
+      "status": 200,
+      "serverMs": 189,
+      "ttfbMs": 360
+    },
+    {
+      "path": "/profile",
+      "variant": "invalid-session",
+      "status": 200,
+      "serverMs": 186,
+      "ttfbMs": 350
+    }
+  ],
+  "idleMinutes": 6
+}

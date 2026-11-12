@@ -65,6 +65,36 @@ Retrieval was tuned on the development questions only; the held-out questions we
 
 **Chatbot answers:** not measured yet. `npm run eval:chat` runs the same 56 questions (answerable, unanswerable, off-topic and adversarial) through the live model and writes `results/chat-eval.json`. Until that file is committed, no claim is made about answer accuracy, abstention or resistance to prompt injection.
 
+**Production latency** ([results/latency-before.json](results/latency-before.json), [results/latency-after.json](results/latency-after.json), reproduce with `npm run latency -- <label> --cold`)
+
+Server time to first byte on production, excluding connection and TLS setup: median of 5 requests per row, measured with curl from one machine in India. "Before" had functions in `iad1` (US East) with the database in Singapore; "after" has them in `sin1` (Singapore), next to the database.
+
+| Request | Path | Before (`iad1`) | After (`sin1`) | Change |
+|---|---|---|---|---|
+| No database call (anonymous) | `/` | 336 ms | 204 ms | −39% |
+| No database call (anonymous) | `/assessment` | 302 ms | 203 ms | −33% |
+| No database call (anonymous) | `/profile` | 320 ms | 193 ms | −40% |
+| One database lookup (invalid session cookie) | `/` | 537 ms | 207 ms | −61% |
+| One database lookup (invalid session cookie) | `/assessment` | 540 ms | 199 ms | −63% |
+| One database lookup (invalid session cookie) | `/profile` | 565 ms | 203 ms | −64% |
+
+How to read this:
+
+- These are signed-out requests, so they show the function and at most one database round trip, not a full signed-in page.
+- The `/` rows are the like-for-like comparison: that page waits for the session lookup in both versions. There the lookup added about 200 ms before (336 to 537 ms) and about 3 ms after (204 to 207 ms).
+- The `/assessment` and `/profile` rows are not like for like. Before, they answered with a redirect after the session check. In the "after" run they streamed a loading skeleton, so the first byte no longer waited for the database at all. Those rows show how soon the browser gets something to display, not how long the database took.
+- Everything was measured from one machine on one connection, 5 requests per row. Treat differences of a few milliseconds as noise.
+
+Query counts per request were also cut (for example 5 to 3 when submitting an answer) and are pinned by `tests/query-budget.test.ts`; their effect on signed-in pages has not been measured on production.
+
+**Cold start, reported separately.** The first request after 6 idle minutes:
+
+| First path requested after idle | Before | After |
+|---|---|---|
+| `/` | 2,572 ms | 1,934 ms |
+
+The following requests were back to normal. This delay is the Neon free tier suspending the database when idle and waking it on the next query, together with the serverless function's own cold start (the measurement does not separate the two). It is a hosting-tier limit, not something the application code controls, and nothing in this repository removes it.
+
 ## Tech stack
 
 | Technology | Status |
