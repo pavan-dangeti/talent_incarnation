@@ -11,7 +11,7 @@ export async function send(form: FormData) {
   if (!chatConfigured) redirect("/chat");
   const text = form.get("question");
   const outcome = await sendMessage(db(), userId, typeof text === "string" ? text : "", geminiGenerate);
-  redirect(outcome === "answered" || outcome === "model_error" ? "/chat#latest" : `/chat?error=${outcome}`);
+  redirect(outcome === "answered" ? "/chat#latest" : `/chat?error=${outcome}`);
 }
 
 export async function clear() {

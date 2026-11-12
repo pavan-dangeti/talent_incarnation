@@ -18,7 +18,7 @@ export const HOURLY_LIMIT = 20;
 export const DAILY_LIMIT = 60;
 const HISTORY_TURNS = 4;
 export const MODEL_ERROR_ANSWER =
-  "Something went wrong while generating an answer. Please try again in a moment.";
+  "I could not answer this just now because the assistant service failed. Your question is saved; please send it again in a moment.";
 
 export type ChatMessage = {
   id: string;
@@ -34,7 +34,7 @@ export async function listMessages(db: Db, userId: string, limit = 50): Promise<
     .select()
     .from(chatMessages)
     .where(eq(chatMessages.userId, userId))
-    .orderBy(desc(chatMessages.createdAt), asc(chatMessages.role))
+    .orderBy(desc(chatMessages.seq))
     .limit(limit);
   return rows.reverse().map((r) => ({
     id: r.id,
@@ -115,40 +115,36 @@ export async function sendMessage(
 
   if (!(await withinLimits(db, userId, now))) return "rate_limited";
 
-  // The attempt is already counted, so the question and its reply can be
-  // written together in one statement once the reply exists.
-  const [recent, context] = await Promise.all([
-    listMessages(db, userId, HISTORY_TURNS),
-    userContext(db, userId),
-  ]);
-  const history: Turn[] = recent.map((m) => ({ role: m.role, content: m.content }));
-  // Both rows are stamped from the application clock: mixing it with the
-  // database clock could sort a reply before its question.
-  const started = Date.now();
+  // The attempt is already counted, so the question and its reply are written
+  // together in one statement once the reply exists. Whatever goes wrong before
+  // that, the question is still saved, with a failure notice as its reply.
+  // One statement, question first: the sequence column then keeps every reply
+  // directly after its question.
   const save = (reply: { content: string; citations?: string[]; abstained: boolean }) =>
     db.insert(chatMessages).values([
       { userId, role: "user", content: question, createdAt: now },
-      {
-        userId,
-        role: "assistant",
-        ...reply,
-        createdAt: new Date(now.getTime() + Math.max(1, Date.now() - started)),
-      },
+      { userId, role: "assistant", ...reply },
     ]);
 
+  let result;
   try {
-    const result = await answerQuestion(question, context, history, generate);
-    await save({
-      content: result.answer,
-      citations: result.citations.map((p) => p.id),
-      abstained: result.abstained,
-    });
-    return "answered";
+    const [recent, context] = await Promise.all([
+      listMessages(db, userId, HISTORY_TURNS),
+      userContext(db, userId),
+    ]);
+    const history: Turn[] = recent.map((m) => ({ role: m.role, content: m.content }));
+    result = await answerQuestion(question, context, history, generate);
   } catch (err) {
-    console.error("chat: model call failed:", err instanceof Error ? err.message : err);
+    console.error("chat: could not produce an answer:", err instanceof Error ? err.message : err);
     await save({ content: MODEL_ERROR_ANSWER, abstained: true });
     return "model_error";
   }
+  await save({
+    content: result.answer,
+    citations: result.citations.map((p) => p.id),
+    abstained: result.abstained,
+  });
+  return "answered";
 }
 
 /** Deletes the visible conversation. Usage counters are deliberately left alone. */

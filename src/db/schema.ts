@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -132,6 +133,9 @@ export const chatMessages = pgTable(
   "chat_message",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // Insertion order. Messages are ordered by this, never by timestamps, which
+    // can tie or disagree between the application and database clocks.
+    seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -143,6 +147,9 @@ export const chatMessages = pgTable(
   },
   (t) => [
     check("chat_message_role_check", sql`${t.role} in ('user', 'assistant')`),
+    index("chat_message_user_seq").on(t.userId, t.seq),
+    // No longer used by any query. Kept so this change stays additive and safe
+    // to apply before the code is deployed; drop it in a later migration.
     index("chat_message_user_created").on(t.userId, t.createdAt),
   ],
 );

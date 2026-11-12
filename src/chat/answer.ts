@@ -79,16 +79,28 @@ export function buildPrompt(
 
 export class ModelOutputError extends Error {}
 
+/** Very short, or refers back to something with a pronoun. */
+export function isFollowUp(question: string): boolean {
+  return (
+    question.trim().split(/\s+/).length <= 4 ||
+    /\b(it|its|that|this|they|them|their|those|these)\b/i.test(question)
+  );
+}
+
 export async function answerQuestion(
   question: string,
   context: UserContext,
   history: Turn[],
   generate: Generate,
 ): Promise<Answer> {
-  // A short follow-up ("what skills does it need?") is retrieved together with the previous question.
+  // A follow-up ("what skills does it need?", "and then?") is retrieved together
+  // with the previous question. Only questions that look like follow-ups
+  // qualify, so an unrelated question is still rejected without a model call.
   const previous = history.findLast((t) => t.role === "user")?.content ?? "";
   let retrieved = retrieve(question);
-  if (retrieved.length === 0 && previous) retrieved = retrieve(`${previous} ${question}`);
+  if (retrieved.length === 0 && previous && isFollowUp(question)) {
+    retrieved = retrieve(`${previous} ${question}`);
+  }
   if (retrieved.length === 0) {
     return { answer: NO_PASSAGES_ANSWER, citations: [], abstained: true, invalidCitations: [], modelCalled: false };
   }

@@ -80,6 +80,19 @@ describe("answerQuestion", () => {
     expect(generate.mock.calls[0][1]).toContain("[data-analyst#");
   });
 
+  it("still rejects an unrelated question after an on-topic one, without calling the model", async () => {
+    const generate = vi.fn<Generate>();
+    const history = [{ role: "user" as const, content: "What does a data analyst do?" }];
+    for (const q of ["What is the capital of France?", "Who won the last cricket world cup?"]) {
+      expect(await answerQuestion(q, noContext, history, generate)).toMatchObject({ modelCalled: false, abstained: true });
+    }
+    expect(generate).not.toHaveBeenCalled();
+    // A real follow-up with a pronoun still goes through.
+    const ok = vi.fn<Generate>(reply({ answer: "x", citations: [], abstained: true }));
+    await answerQuestion("How would someone get into that?", noContext, history, ok);
+    expect(ok).toHaveBeenCalledOnce();
+  });
+
   it("rejects malformed model output", async () => {
     for (const raw of ["not json", "{}", JSON.stringify({ answer: "", citations: [], abstained: false })]) {
       await expect(answerQuestion(question, noContext, [], async () => raw)).rejects.toThrow(/unexpected format/);
@@ -158,15 +171,35 @@ describe("chat service", () => {
     expect(prompt).not.toContain('"score":99');
   });
 
-  it("records a failure message when the model errors", async () => {
-    await clearMessages(db, bob);
-    const failing: Generate = async () => { throw new Error("boom"); };
+  it("keeps the question and shows a failure notice however the model call fails", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await sendMessage(db, bob, ask, failing)).toBe("model_error");
+    const failures: Record<string, Generate> = {
+      "network error": async () => { throw new Error("fetch failed"); },
+      timeout: async () => { throw new DOMException("The operation timed out", "TimeoutError"); },
+      "malformed output": async () => "<html>502 Bad Gateway</html>",
+      "empty output": async () => "",
+    };
+    for (const [name, generate] of Object.entries(failures)) {
+      await clearMessages(db, bob);
+      const typed = `What does a frontend developer do? (${name})`;
+      expect(await sendMessage(db, bob, `  ${typed} `, generate), name).toBe("model_error");
+      const messages = await listMessages(db, bob);
+      expect(messages.map((m) => [m.role, m.content]), name).toEqual([
+        ["user", typed],
+        ["assistant", MODEL_ERROR_ANSWER],
+      ]);
+      expect(messages[1]).toMatchObject({ abstained: true, citations: [] });
+    }
     log.mockRestore();
-    const messages = await listMessages(db, bob);
-    expect(messages.at(-1)).toMatchObject({ role: "assistant", content: MODEL_ERROR_ANSWER, abstained: true });
-    expect(messages.filter((m) => m.role === "user")).toHaveLength(1);
+  });
+
+  it("answers normally on the next attempt after a failure, with the failed turn still in the history", async () => {
+    await clearMessages(db, bob);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await sendMessage(db, bob, ask, async () => { throw new Error("boom"); });
+    log.mockRestore();
+    expect(await sendMessage(db, bob, ask, good)).toBe("answered");
+    expect((await listMessages(db, bob)).map((m) => m.role)).toEqual(["user", "assistant", "user", "assistant"]);
   });
 
   it("enforces the hourly limit per user and lets it expire", async () => {

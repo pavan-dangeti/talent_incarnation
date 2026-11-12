@@ -12,6 +12,8 @@ export const metadata = { title: "Career chat · Talent Incarnation" };
 const ERRORS: Record<string, string> = {
   empty: "Type a question first.",
   too_long: `Questions can be at most ${MAX_QUESTION_LENGTH} characters.`,
+  model_error:
+    "The assistant could not answer just now. Your question was saved and is back in the box below, so you can send it again.",
   rate_limited: `You have reached the limit of ${HOURLY_LIMIT} questions per hour or ${DAILY_LIMIT} per day. Please try again later.`,
 };
 
@@ -28,7 +30,11 @@ export default async function ChatPage({
 }) {
   const userId = await requireUserId();
   const messages = await listMessages(db(), userId);
-  const error = ERRORS[(await searchParams).error ?? ""];
+  const errorCode = (await searchParams).error ?? "";
+  const error = ERRORS[errorCode];
+  // After a failed model call, offer the saved question again for a one-click retry.
+  const retryQuestion =
+    errorCode === "model_error" ? (messages.findLast((m) => m.role === "user")?.content ?? "") : "";
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -102,6 +108,7 @@ export default async function ChatPage({
           required
           maxLength={MAX_QUESTION_LENGTH}
           rows={3}
+          defaultValue={retryQuestion}
           disabled={!chatConfigured}
           className="field mt-2 w-full"
         />
