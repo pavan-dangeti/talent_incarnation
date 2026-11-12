@@ -42,7 +42,7 @@ Choices (each can be challenged before Phase 1):
 | ORM / migrations | Drizzle with checked-in SQL migrations | Typed queries, reviewable migrations |
 | Validation | zod at every trust boundary | Single source for request types |
 | LLM | Gemini API through the official Google GenAI SDK (`@google/genai`), model id in an env var | Google Solution Challenge context; models change, so nothing is hard-coded |
-| Rate limiting | Per-user limits counted from stored chat messages | Protects Gemini quota and cost with no extra store |
+| Rate limiting | Per-user counters in Postgres (`chat_usage`), incremented atomically | Protects Gemini quota and cost with no extra store; independent of chat history |
 | Tests | Vitest (unit, API), Playwright (e2e, axe accessibility), Lighthouse CI | Phase 5 |
 | CI | GitHub Actions: lint, typecheck, test, build | Phase 0 |
 | Errors / monitoring | Sentry (or equivalent) plus Vercel logs | Phase 6 |
@@ -63,7 +63,8 @@ Postgres. All tables have `id` (uuid) and `created_at`. Auth.js tables (`account
 | `assessment_answer` | assessment_id, position, question_id, choice, is_correct, answered_at | Ordered log. Primary key (assessment_id, position) and unique (assessment_id, question_id) make double submits a no-op |
 | (role skill targets) | role id, assessment topic, required level | Planned for Phase 4, as data alongside the careers dataset |
 | (careers dataset) | role id, title, domain, sections | Not a table: versioned TypeScript data in `src/careers/dataset.ts`, split into passages with stable ids |
-| `chat_message` | user_id, role (user/assistant), content, citations (jsonb passage ids), abstained, created_at | One conversation per user; also the source for rate limiting |
+| `chat_message` | user_id, role (user/assistant), content, citations (jsonb passage ids), abstained, created_at | One conversation per user, clearable by the user |
+| `chat_usage` | user_id, window_start (clock hour), count | Rate-limit accounting, separate from messages so clearing a conversation cannot reset it |
 | `roadmaps` | user_id, role_id, generated_from_score_ids[], items (jsonb) | Versioned, deterministic output |
 
 Rules: every user-owned row is accessed only through queries scoped by `user_id` from the session. Account deletion cascades.
@@ -95,7 +96,7 @@ Gemini is used in one place: generating the chatbot's answer, behind a server ac
 - **Not streaming:** the answer is validated as a whole before it is shown, which rules out streaming tokens to the page.
 - **Guardrails:** careers and learning only; no salaries, hiring numbers, company names or guarantees; no medical, legal or financial advice; instructions inside user text or passages are treated as data; output rendered as plain text.
 - **Evaluation:** `evals/chat-eval.json` has 56 questions: 38 answerable (12 held out from tuning), 8 unanswerable, 4 off-topic and 6 adversarial. `npm run eval:retrieval` (no key, checked in CI) writes `results/retrieval-eval.json`. `npm run eval:chat` (live model) writes `results/chat-eval.json` with correctness, abstention, injection resistance and raw citation validity; grading is by substring and citation checks, documented in the script with its limits.
-- **Known limits:** answer quality is unmeasured until the live evaluation is run. The evaluation set is small and self-authored. The rate limit is count-then-insert, so two simultaneous requests can exceed it by one.
+- **Known limits:** answer quality is unmeasured until the live evaluation is run. The evaluation set is small and self-authored. Rate-limit windows are clock hours, so up to twice the hourly limit can be sent across an hour boundary; the daily limit still applies.
 
 ## 7. Threat model
 

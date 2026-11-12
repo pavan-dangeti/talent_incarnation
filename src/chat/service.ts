@@ -1,5 +1,5 @@
 // Chat persistence, rate limiting and user context. Every query is scoped by user id.
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { PASSAGE_BY_ID, type Passage } from "@/careers/dataset";
 import * as schema from "@/db/schema";
@@ -12,7 +12,7 @@ import {
 } from "./answer";
 
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
-const { assessments, chatMessages, profiles } = schema;
+const { assessments, chatMessages, chatUsage, profiles } = schema;
 
 export const HOURLY_LIMIT = 20;
 export const DAILY_LIMIT = 60;
@@ -63,14 +63,35 @@ async function userContext(db: Db, userId: string): Promise<UserContext> {
   };
 }
 
-async function sentSince(db: Db, userId: string, since: Date): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(chatMessages)
-    .where(
-      and(eq(chatMessages.userId, userId), eq(chatMessages.role, "user"), gte(chatMessages.createdAt, since)),
-    );
-  return row.n;
+const HOUR = 60 * 60 * 1000;
+
+/**
+ * Counts this attempt and reports whether it is within the limits. The
+ * increment is a single atomic upsert, so simultaneous requests cannot slip
+ * past the hourly limit, and the counter lives outside chat_message, so
+ * clearing the conversation does not reset it. Windows are clock hours: a user
+ * can send up to twice the hourly limit across an hour boundary.
+ */
+async function withinLimits(db: Db, userId: string, now: Date): Promise<boolean> {
+  const windowStart = new Date(Math.floor(now.getTime() / HOUR) * HOUR);
+  const [{ count }] = await db
+    .insert(chatUsage)
+    .values({ userId, windowStart, count: 1 })
+    .onConflictDoUpdate({
+      target: [chatUsage.userId, chatUsage.windowStart],
+      set: { count: sql`${chatUsage.count} + 1` },
+    })
+    .returning({ count: chatUsage.count });
+  if (count > HOURLY_LIMIT) return false;
+
+  const dayAgo = new Date(now.getTime() - 24 * HOUR);
+  const [{ total }] = await db
+    .select({ total: sql<number>`coalesce(sum(${chatUsage.count}), 0)::int` })
+    .from(chatUsage)
+    .where(and(eq(chatUsage.userId, userId), gte(chatUsage.windowStart, dayAgo)));
+  // Old windows are no longer needed for any check.
+  await db.delete(chatUsage).where(and(eq(chatUsage.userId, userId), lt(chatUsage.windowStart, dayAgo)));
+  return total <= DAILY_LIMIT;
 }
 
 export type SendOutcome = "answered" | "empty" | "too_long" | "rate_limited" | "model_error";
@@ -86,18 +107,12 @@ export async function sendMessage(
   if (!question) return "empty";
   if (question.length > MAX_QUESTION_LENGTH) return "too_long";
 
-  // ponytail: count-then-insert lets two simultaneous requests both pass at the
-  // boundary, so a user can exceed the limit by a message or two. Use an atomic
-  // counter row if the limits ever need to be exact.
-  const hour = await sentSince(db, userId, new Date(now.getTime() - 60 * 60 * 1000));
-  const day = await sentSince(db, userId, new Date(now.getTime() - 24 * 60 * 60 * 1000));
-  if (hour >= HOURLY_LIMIT || day >= DAILY_LIMIT) return "rate_limited";
+  if (!(await withinLimits(db, userId, now))) return "rate_limited";
 
   const history: Turn[] = (await listMessages(db, userId, HISTORY_TURNS)).map((m) => ({
     role: m.role,
     content: m.content,
   }));
-  // Stored before the model call, so failed attempts still count towards the limit.
   await db.insert(chatMessages).values({ userId, role: "user", content: question, createdAt: now });
   // Both rows are stamped from the application clock: mixing it with the
   // database clock could sort a reply before its question.
@@ -130,6 +145,7 @@ export async function sendMessage(
   }
 }
 
+/** Deletes the visible conversation. Usage counters are deliberately left alone. */
 export async function clearMessages(db: Db, userId: string): Promise<void> {
   await db.delete(chatMessages).where(eq(chatMessages.userId, userId));
 }

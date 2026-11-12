@@ -14,6 +14,7 @@ import {
 } from "../src/chat/answer";
 import { retrieve } from "../src/chat/retrieval";
 import {
+  DAILY_LIMIT,
   HOURLY_LIMIT,
   MODEL_ERROR_ANSWER,
   clearMessages,
@@ -157,7 +158,7 @@ describe("chat service", () => {
     expect(prompt).not.toContain('"score":99');
   });
 
-  it("records a failure message when the model errors, and still counts the attempt", async () => {
+  it("records a failure message when the model errors", async () => {
     await clearMessages(db, bob);
     const failing: Generate = async () => { throw new Error("boom"); };
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -188,6 +189,37 @@ describe("chat service", () => {
       await sendMessage(db, bob, ask, good, now);
     }
     expect((await listMessages(db, bob)).map((m) => m.role)).toEqual(["user", "assistant", "user", "assistant"]);
+  });
+
+  it("does not reset the limit when the conversation is cleared", async () => {
+    const now = new Date("2026-04-01T10:00:00Z");
+    for (let i = 0; i < HOURLY_LIMIT; i++) await sendMessage(db, bob, ask, good, now);
+    await clearMessages(db, bob);
+    expect(await listMessages(db, bob)).toEqual([]);
+    expect(await sendMessage(db, bob, ask, good, now)).toBe("rate_limited");
+  });
+
+  it("holds the hourly limit exactly under simultaneous requests", async () => {
+    const now = new Date("2026-05-01T10:00:00Z");
+    const outcomes = await Promise.all(
+      Array.from({ length: HOURLY_LIMIT + 5 }, () => sendMessage(db, bob, ask, good, now)),
+    );
+    expect(outcomes.filter((o) => o === "answered")).toHaveLength(HOURLY_LIMIT);
+    expect(outcomes.filter((o) => o === "rate_limited")).toHaveLength(5);
+  });
+
+  it("enforces the daily limit across hours", async () => {
+    const [carol] = await db.insert(schema.users).values({ email: "carol@example.com" }).returning();
+    const start = new Date("2026-06-01T00:00:00Z").getTime();
+    let answered = 0;
+    for (let hour = 0; hour < 5; hour++) {
+      for (let i = 0; i < HOURLY_LIMIT; i++) {
+        if ((await sendMessage(db, carol.id, ask, good, new Date(start + hour * 3_600_000))) === "answered") answered += 1;
+      }
+    }
+    expect(answered).toBe(DAILY_LIMIT);
+    // More than a day later the allowance is back.
+    expect(await sendMessage(db, carol.id, ask, good, new Date(start + 30 * 3_600_000))).toBe("answered");
   });
 
   it("clears only the caller's conversation", async () => {

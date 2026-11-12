@@ -146,3 +146,17 @@ export const chatMessages = pgTable(
     index("chat_message_user_created").on(t.userId, t.createdAt),
   ],
 );
+
+// Rate-limit accounting, one row per user and clock hour. Kept apart from
+// chat_message so that clearing a conversation cannot reset the limit.
+export const chatUsage = pgTable(
+  "chat_usage",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    windowStart: timestamp("window_start", { mode: "date" }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.windowStart] })],
+);
