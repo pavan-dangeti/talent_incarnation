@@ -140,6 +140,9 @@ Without them the app still builds and runs, but shows "Sign-in is not configured
 1. Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
 2. Put it in `GEMINI_API_KEY`, and set `GEMINI_CHAT_MODEL` to a current model id from the [model list](https://ai.google.dev/gemini-api/docs/models). No model id is hard-coded.
 3. Run `npm run eval:chat` and commit `results/chat-eval.json` to measure answer quality.
+   - Requests are paced at one every 5 seconds by default (`npm run eval:chat -- --interval-ms 8000` to change it), and per-minute rate limits, 503s and timeouts are retried with backoff.
+   - Completed answers are cached in `.cache/` (not committed), so running the command again only calls the model for items that are still missing. A daily quota error stops further calls; run it again after the quota resets.
+   - An item whose API call failed is reported as "not run", never as a wrong answer, and the results file is only written when all 56 items have completed.
 
 On Vercel, add the same names under Project → Settings → Environment Variables. Do not paste keys into issues, PRs or chats.
 

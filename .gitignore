@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# local caches (model answers for npm run eval:chat)
+.cache/
