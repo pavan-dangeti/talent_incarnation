@@ -42,6 +42,8 @@ export type Answer = {
   abstained: boolean;
   /** Ids the model cited that were not among the retrieved passages (dropped). */
   invalidCitations: string[];
+  /** Code-like tokens removed because they were copied from the question (see stripEchoedTokens). */
+  echoStripped?: string[];
   /** False when retrieval found nothing and the model was never called. */
   modelCalled: boolean;
 };
@@ -150,9 +152,10 @@ export async function answerQuestion(
   ].join("\n");
   const echo = stripEchoedTokens(parsed.answer, question, sources);
   if (echo.stripped.length > 0 && echo.text.length === 0) {
-    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations: [], modelCalled: true };
+    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations: [], modelCalled: true, echoStripped: echo.stripped };
   }
   parsed.answer = echo.text;
+  const stripped = echo.stripped.length > 0 ? { echoStripped: echo.stripped } : {};
 
   const allowed = new Set(passages.map((p) => p.id));
   const cited = [...new Set(parsed.citations)];
@@ -160,11 +163,11 @@ export async function answerQuestion(
   const invalidCitations = cited.filter((id) => !allowed.has(id));
 
   if (parsed.abstained) {
-    return { answer: parsed.answer, citations: [], abstained: true, invalidCitations, modelCalled: true };
+    return { answer: parsed.answer, citations: [], abstained: true, invalidCitations, modelCalled: true, ...stripped };
   }
   // An answer with no valid citation is not shown: it cannot be checked against the dataset.
   if (valid.length === 0) {
-    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations, modelCalled: true };
+    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations, modelCalled: true, ...stripped };
   }
   return {
     answer: parsed.answer,
@@ -172,5 +175,6 @@ export async function answerQuestion(
     abstained: false,
     invalidCitations,
     modelCalled: true,
+    ...stripped,
   };
 }
