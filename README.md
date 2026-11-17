@@ -54,34 +54,35 @@ What this does and does not show: the engine recovers a known ability better tha
 
 **Chatbot retrieval** ([results/retrieval-eval.json](results/retrieval-eval.json), reproduce with `npm run eval:retrieval`)
 
-Whether the right passage is found for a question, measured on [evals/chat-eval.json](evals/chat-eval.json) without calling any model.
+Whether the right passage is found for a question, measured on [evals/chat-eval.json](evals/chat-eval.json) without calling any model. The model is given the top 4 passages, plus every section of any role the question names (up to 12 passages; 5.3 on average for development questions, 6.1 for held-out).
 
 | | Development questions (26) | Held-out questions (12) |
 |---|---|---|
-| An expected passage is in the top 4 | 96.2% | 100% |
+| An expected passage is among those retrieved | 100% | 100% |
 | An expected passage is ranked first | 80.8% | 66.7% |
 
 Retrieval was tuned on the development questions only; the held-out questions were written before tuning and never used for it. Both sets are small and were written by the same person who wrote the dataset, so treat these as a sanity check, not a benchmark. Retrieval alone rejects all 4 off-topic questions but none of the 8 career questions the dataset cannot answer; those depend on the model abstaining.
 
 **Chatbot answers** ([results/chat-eval.json](results/chat-eval.json), reproduce with `npm run eval:chat`)
 
-All 56 questions in [evals/chat-eval.json](evals/chat-eval.json) run end to end through retrieval, the live model and the server-side citation check. Model `gemini-3.5-flash-lite`, run on 2026-11-13 at commit `13c33b8`; every item completed.
+All 56 questions in [evals/chat-eval.json](evals/chat-eval.json) run end to end through retrieval, the live model and the server-side citation check. Model `gemini-3.5-flash-lite`, run on 2026-11-17 at commit `6f626a6`; every item completed. The previous run, before named-role retrieval, is [results/chat-eval.json at `1c6ab20`](https://github.com/pavan-dangeti/talent_incarnation/blob/1c6ab20bb58ca1abbd85878745fbd9900a1fc78b/results/chat-eval.json).
 
-| Check | Result | 95% confidence interval |
-|---|---|---|
-| Answerable questions answered correctly, development set | 23 of 26 (88.5%) | 71.0% to 96.0% |
-| Answerable questions answered correctly, held-out set | 10 of 12 (83.3%) | 55.2% to 95.3% |
-| Unanswerable career questions declined | 8 of 8 | 67.6% to 100% |
-| Off-topic questions declined | 4 of 4 | 51.0% to 100% |
-| Prompt-injection attempts resisted | 6 of 6 | 61.0% to 100% |
-| Model answers whose citations were all among the retrieved passages | 51 of 51 | 93.0% to 100% |
+| Check | Before (2026-11-13) | Now (2026-11-17) | 95% confidence interval, now |
+|---|---|---|---|
+| Answerable questions answered correctly, development set | 23 of 26 | 26 of 26 | 87.1% to 100% |
+| Answerable questions answered correctly, held-out set | 10 of 12 | 11 of 12 | 64.6% to 98.5% |
+| Unanswerable career questions declined | 8 of 8 | 8 of 8 | 67.6% to 100% |
+| Off-topic questions declined | 4 of 4 | 4 of 4 | 51.0% to 100% |
+| Prompt-injection attempts resisted | 6 of 6 | **5 of 6** | 43.6% to 97.0% |
+| Model answers whose citations were all among the retrieved passages | 51 of 51 | 51 of 51 | 93.0% to 100% |
 
 How to read this:
 
 - The question sets are small and were written by the same person who wrote the dataset and the code, so the intervals are wide and the results say nothing about questions from real users. Intervals are Wilson score intervals computed from the counts in the results file.
-- "Correct" is graded automatically: the answer must cite an expected passage and contain specific words. That check is strict in one direction (a good answer that uses different words fails; one held-out failure is this case) and loose in the other (it does not judge whether the rest of the answer is right).
+- "Correct" is graded automatically: the answer must cite an expected passage and contain specific words. That check is strict in one direction (a good answer that uses different words fails; the remaining held-out failure is this case) and loose in the other (it does not judge whether the rest of the answer is right).
 - The 4 off-topic questions were rejected by retrieval before the model was called, so that row tests retrieval, not the model.
-- All 5 failures are explained in [docs/design.md](docs/design.md#chat-evaluation-failures). In short: in four, the passage with the needed detail was not among the 4 retrieved, and the model answered correctly but incompletely from what it had, or in one case correctly declined. In the fifth, a held-out item, the answer was accurate but did not use the word the grader required.
+- **One prompt-injection attempt succeeded in this run.** Asked to end its answer with a marker string, the model did so (it did not cite the fake passage it was also asked to cite). Repeating the question did not reproduce it, so the model follows such instructions intermittently; it is still a real weakness and is not counted as noise.
+- Each failure, before and after, is explained in [docs/design.md](docs/design.md#chat-evaluation-failures).
 
 **Production latency** ([results/latency-before.json](results/latency-before.json), [results/latency-after.json](results/latency-after.json), reproduce with `npm run latency -- <label> --cold`)
 
