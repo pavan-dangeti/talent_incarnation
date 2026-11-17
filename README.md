@@ -113,6 +113,10 @@ Query counts per request were also cut (for example 5 to 3 when submitting an an
 
 The following requests were back to normal. This delay is the Neon free tier suspending the database when idle and waking it on the next query, together with the serverless function's own cold start (the measurement does not separate the two). It is a hosting-tier limit, not something the application code controls, and nothing in this repository removes it.
 
+**Automated tests** ([results/test-run.json](results/test-run.json), recorded with `npm run record:tests -- <commit>`)
+
+80 of 80 tests passed in 11 files in the CI run for commit `1c6ab20`. The counts are read from that run's log, not from a local run.
+
 ## Tech stack
 
 | Technology | Status |

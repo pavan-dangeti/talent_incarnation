@@ -1,0 +1,18 @@
+{
+  "description": "Automated test counts from the CI run (GitHub Actions, workflow CI) for this commit, read from Vitest's summary in the run log. Skipped tests fail the run (see vitest.config.mts).",
+  "commit": "1c6ab20bb58ca1abbd85878745fbd9900a1fc78b",
+  "ciRun": "https://github.com/pavan-dangeti/talent_incarnation/actions/runs/44085779943",
+  "ranAt": "2026-11-17T12:43:14Z",
+  "testFiles": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": {
+    "total": 80,
+    "passed": 80,
+    "failed": 0,
+    "skipped": 0
+  }
+}

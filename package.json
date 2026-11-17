@@ -16,7 +16,8 @@
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
     "eval:chat": "tsx scripts/eval-chat.mts",
     "latency": "node scripts/measure-latency.mjs",
-    "check:signed-out": "node scripts/check-signed-out.mjs"
+    "check:signed-out": "node scripts/check-signed-out.mjs",
+    "record:tests": "node scripts/record-test-run.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
