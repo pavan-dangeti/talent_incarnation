@@ -9,7 +9,7 @@ import {
   type Generate,
   type UserContext,
 } from "../src/chat/answer";
-import { retrieve } from "../src/chat/retrieval";
+import { MAX_PASSAGES, TOP_K, retrieve } from "../src/chat/retrieval";
 import {
   DAILY_LIMIT,
   HOURLY_LIMIT,
@@ -36,6 +36,40 @@ describe("careers dataset and retrieval", () => {
     );
     expect(retrieve("What is the capital of France?")).toEqual([]);
     expect(retrieve("")).toEqual([]);
+  });
+});
+
+describe("retrieval for a named role", () => {
+  const sections = (role: string) =>
+    ["overview", "work", "skills", "start", "related"].map((s) => `${role}#${s}`);
+  const ids = (q: string) => retrieve(q).map((r) => r.passage.id);
+
+  it("returns every section of a role the question names", () => {
+    for (const [q, role] of [
+      ["What does a DevOps engineer do?", "devops-engineer"],
+      ["What does a mobile developer need to learn?", "mobile-developer"],
+      ["What should my first projects be as a UI designer?", "ui-designer"],
+      ["What does an ML engineer do with large language models?", "ml-engineer"],
+    ] as const) {
+      expect(ids(q), q).toEqual(expect.arrayContaining(sections(role)));
+    }
+  });
+
+  it("covers every named role when a question names two, within the cap", () => {
+    const got = ids("How do I move from data analyst to data scientist?");
+    expect(got).toEqual(expect.arrayContaining([...sections("data-analyst"), ...sections("data-scientist")]));
+    expect(got.length).toBeLessThanOrEqual(MAX_PASSAGES);
+  });
+
+  it("needs the whole title: a shared word does not name a role", () => {
+    // "developer" and "designer" appear in several titles; none is named here.
+    expect(ids("What does a developer do?").length).toBe(TOP_K);
+    expect(ids("Which design role fits someone who enjoys typography?").length).toBeLessThanOrEqual(TOP_K);
+  });
+
+  it("still returns nothing for off-topic questions and keeps the top-ranked passage first", () => {
+    expect(retrieve("What is the capital of France?")).toEqual([]);
+    expect(ids("What skills does a frontend developer need?")[0]).toBe("frontend-developer#skills");
   });
 });
 

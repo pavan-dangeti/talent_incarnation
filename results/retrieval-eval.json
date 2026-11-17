@@ -1,35 +1,33 @@
 {
-  "description": "BM25 retrieval over the curated careers dataset, measured on evals/chat-eval.json. A hit means at least one expected passage is in the top k. Retrieval was tuned on the development split only; the heldout split is the number to trust. The gate rows show how many non-answerable questions retrieval alone rejects; the rest rely on the model abstaining.",
-  "baseCommit": "afbfbf8",
-  "generatedOn": "2026-11-12",
+  "description": "BM25 retrieval over the curated careers dataset, measured on evals/chat-eval.json. A hit means at least one expected passage is among the passages retrieved: the top k, plus every section of any role the question names (up to maxPassages). Retrieval was tuned on the development split only; the heldout split is the number to trust. The gate rows show how many non-answerable questions retrieval alone rejects; the rest rely on the model abstaining.",
+  "baseCommit": "fa5c272",
+  "generatedOn": "2026-11-17",
   "config": {
     "passages": 69,
     "topK": 4,
+    "maxPassages": 12,
     "minScore": 3
   },
   "development": {
     "total": 26,
-    "hitAtK": 0.962,
+    "hitAtK": 1,
     "hitAt1": 0.808,
-    "meanReciprocalRank": 0.885,
-    "misses": [
-      {
-        "id": "a20",
-        "question": "What should my first projects be as a UI designer?",
-        "retrieved": [
-          "product-designer#overview",
-          "ui-designer#overview",
-          "ui-designer#related",
-          "ui-designer#skills"
-        ]
-      }
-    ]
+    "meanReciprocalRank": 0.892,
+    "passagesRetrieved": {
+      "mean": 5.346,
+      "max": 12
+    },
+    "misses": []
   },
   "heldout": {
     "total": 12,
     "hitAtK": 1,
     "hitAt1": 0.667,
     "meanReciprocalRank": 0.813,
+    "passagesRetrieved": {
+      "mean": 6.083,
+      "max": 10
+    },
     "misses": []
   },
   "offTopic": {

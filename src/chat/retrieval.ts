@@ -85,6 +85,11 @@ const titleIdf = inverseDocumentFrequency((d) => d.title);
 export const TOP_K = 4;
 /** Below this best score the question is treated as outside the dataset. */
 export const MIN_SCORE = 3;
+/** Upper bound on passages sent to the model, reached only when several roles are named. */
+export const MAX_PASSAGES = 12;
+
+/** "devops-engineer#work" -> "devops-engineer"; guides have no role. */
+const roleOf = (id: string) => (id.includes("#") ? id.slice(0, id.indexOf("#")) : null);
 
 export type Retrieved = { passage: Passage; score: number };
 
@@ -104,5 +109,17 @@ export function retrieve(query: string, k = TOP_K): Retrieved[] {
     .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score || a.passage.id.localeCompare(b.passage.id));
   if (scored.length === 0 || scored[0].score < MIN_SCORE) return [];
-  return scored.slice(0, k);
+
+  // A question that names a role ("what does a DevOps engineer do?") gets every
+  // section of that role, not just the top k: all of a role's sections share its
+  // title, so they score alike and the one with the answer could miss the cut.
+  // A role is named when every word of its title appears in the question.
+  const named = new Set(
+    docs
+      .filter((d) => roleOf(d.passage.id) && [...d.title].every((t) => terms.includes(t)))
+      .map((d) => roleOf(d.passage.id)),
+  );
+  return scored
+    .filter((r, i) => i < k || named.has(roleOf(r.passage.id)))
+    .slice(0, MAX_PASSAGES);
 }
