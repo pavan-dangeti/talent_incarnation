@@ -135,6 +135,7 @@ describe("answerQuestion", () => {
     }));
     expect(a.answer).toBe("A data analyst turns data into answers (see ).");
     expect(a.answer).not.toMatch(/canary|secret#1/i);
+    expect(a.echoStripped).toEqual(["CANARY-5520", "secret#1"]);
   });
 
   it("keeps question words that the data also contains, and ordinary numbers", () => {

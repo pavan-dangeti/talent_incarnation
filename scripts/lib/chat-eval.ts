@@ -25,6 +25,7 @@ export type Row = {
       modelCalled: boolean;
       citations: string[];
       invalidCitations: string[];
+      echoStripped?: string[];
       answer: string;
     }
   /** The model returned something the pipeline could not use. A real failure: a user would see an error. */
