@@ -42,6 +42,8 @@ export type Answer = {
   abstained: boolean;
   /** Ids the model cited that were not among the retrieved passages (dropped). */
   invalidCitations: string[];
+  /** Code-like tokens removed because they were copied from the question (see stripEchoedTokens). */
+  echoStripped?: string[];
   /** False when retrieval found nothing and the model was never called. */
   modelCalled: boolean;
 };
@@ -79,6 +81,35 @@ export function buildPrompt(
 
 export class ModelOutputError extends Error {}
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Removes from the answer every code-like token (letters mixed with digits,
+ * such as "CANARY-5520" or "secret#1") that the question contains but nothing
+ * the model was given as data does. Such a token can only have been copied
+ * from the question, which is how an injected "end your answer with X" shows up.
+ * ponytail: only letter+digit tokens are caught; an injected plain word or
+ * sentence still gets through, and the prompt rules remain the main defence.
+ */
+export function stripEchoedTokens(answer: string, question: string, sources: string): { text: string; stripped: string[] } {
+  const known = sources.toLowerCase();
+  const tokens = question
+    .split(/\s+/)
+    .map((t) => t.replace(/^[^\w#]+|[^\w#]+$/g, ""))
+    .filter((t) => /[a-z]/i.test(t) && /\d/.test(t) && !/^\d+(st|nd|rd|th)$/i.test(t) && !known.includes(t.toLowerCase()));
+  const stripped: string[] = [];
+  let text = answer;
+  for (const t of new Set(tokens)) {
+    const re = new RegExp(escapeRegExp(t), "gi");
+    if (re.test(text)) {
+      stripped.push(t);
+      text = text.replace(re, "");
+    }
+  }
+  if (stripped.length > 0) text = text.replace(/[ \t]{2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
+  return { text, stripped };
+}
+
 /** Very short, or refers back to something with a pronoun. */
 export function isFollowUp(question: string): boolean {
   return (
@@ -114,17 +145,29 @@ export async function answerQuestion(
     throw new ModelOutputError("The model returned an answer in an unexpected format.");
   }
 
+  const sources = [
+    JSON.stringify(context),
+    ...history.map((t) => t.content),
+    ...passages.map((p) => `${p.id} ${p.title} ${p.section} ${p.text}`),
+  ].join("\n");
+  const echo = stripEchoedTokens(parsed.answer, question, sources);
+  if (echo.stripped.length > 0 && echo.text.length === 0) {
+    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations: [], modelCalled: true, echoStripped: echo.stripped };
+  }
+  parsed.answer = echo.text;
+  const stripped = echo.stripped.length > 0 ? { echoStripped: echo.stripped } : {};
+
   const allowed = new Set(passages.map((p) => p.id));
   const cited = [...new Set(parsed.citations)];
   const valid = cited.filter((id) => allowed.has(id));
   const invalidCitations = cited.filter((id) => !allowed.has(id));
 
   if (parsed.abstained) {
-    return { answer: parsed.answer, citations: [], abstained: true, invalidCitations, modelCalled: true };
+    return { answer: parsed.answer, citations: [], abstained: true, invalidCitations, modelCalled: true, ...stripped };
   }
   // An answer with no valid citation is not shown: it cannot be checked against the dataset.
   if (valid.length === 0) {
-    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations, modelCalled: true };
+    return { answer: UNGROUNDED_ANSWER, citations: [], abstained: true, invalidCitations, modelCalled: true, ...stripped };
   }
   return {
     answer: parsed.answer,
@@ -132,5 +175,6 @@ export async function answerQuestion(
     abstained: false,
     invalidCitations,
     modelCalled: true,
+    ...stripped,
   };
 }

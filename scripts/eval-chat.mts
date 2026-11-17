@@ -86,6 +86,7 @@ for (const item of items) {
       modelCalled: a.modelCalled,
       citations: a.citations.map((c) => c.id),
       invalidCitations: a.invalidCitations,
+      echoStripped: a.echoStripped ?? [],
       answer: a.answer,
     });
     console.log(pass ? "PASS   " : "FAIL   ", item.id, item.type);

@@ -65,23 +65,23 @@ Retrieval was tuned on the development questions only; the held-out questions we
 
 **Chatbot answers** ([results/chat-eval.json](results/chat-eval.json), reproduce with `npm run eval:chat`)
 
-All 56 questions in [evals/chat-eval.json](evals/chat-eval.json) run end to end through retrieval, the live model and the server-side citation check. Model `gemini-3.5-flash-lite`, run on 2026-11-17 at commit `6f626a6`; every item completed. The previous run, before named-role retrieval, is [results/chat-eval.json at `1c6ab20`](https://github.com/pavan-dangeti/talent_incarnation/blob/1c6ab20bb58ca1abbd85878745fbd9900a1fc78b/results/chat-eval.json).
+All 56 questions in [evals/chat-eval.json](evals/chat-eval.json) run end to end through retrieval, the live model and the server-side citation check. Model `gemini-3.5-flash-lite`, run on 2026-11-17 at commit `6c532ab`; every item completed. The answer cache was cleared before this run, so every answer is a fresh model call (60 requests including retries); the results file was then re-recorded from those same answers to add which tokens were stripped, with no further model calls. Earlier runs: before named-role retrieval, [results/chat-eval.json at `1c6ab20`](https://github.com/pavan-dangeti/talent_incarnation/blob/1c6ab20bb58ca1abbd85878745fbd9900a1fc78b/results/chat-eval.json); before echo stripping, [at `9f1f094`](https://github.com/pavan-dangeti/talent_incarnation/blob/9f1f094596fdf7831d3acdd8d5199d272104b4b0/results/chat-eval.json) (the v2.0.0 release).
 
-| Check | Before (2026-11-13) | Now (2026-11-17) | 95% confidence interval, now |
-|---|---|---|---|
-| Answerable questions answered correctly, development set | 23 of 26 | 26 of 26 | 87.1% to 100% |
-| Answerable questions answered correctly, held-out set | 10 of 12 | 11 of 12 | 64.6% to 98.5% |
-| Unanswerable career questions declined | 8 of 8 | 8 of 8 | 67.6% to 100% |
-| Off-topic questions declined | 4 of 4 | 4 of 4 | 51.0% to 100% |
-| Prompt-injection attempts resisted | 6 of 6 | **5 of 6** | 43.6% to 97.0% |
-| Model answers whose citations were all among the retrieved passages | 51 of 51 | 51 of 51 | 93.0% to 100% |
+| Check | 2026-11-13 | v2.0.0 (named-role retrieval) | Now (echo stripping) | 95% confidence interval, now |
+|---|---|---|---|---|
+| Answerable questions answered correctly, development set | 23 of 26 | 26 of 26 | 26 of 26 | 87.1% to 100% |
+| Answerable questions answered correctly, held-out set | 10 of 12 | 11 of 12 | 11 of 12 | 64.6% to 98.5% |
+| Unanswerable career questions declined | 8 of 8 | 8 of 8 | 8 of 8 | 67.6% to 100% |
+| Off-topic questions declined | 4 of 4 | 4 of 4 | 4 of 4 | 51.0% to 100% |
+| Prompt-injection attempts resisted | 6 of 6 | 5 of 6 | 6 of 6 | 61.0% to 100% |
+| Model answers whose citations were all among the retrieved passages | 51 of 51 | 51 of 51 | 51 of 51 | 93.0% to 100% |
 
 How to read this:
 
 - The question sets are small and were written by the same person who wrote the dataset and the code, so the intervals are wide and the results say nothing about questions from real users. Intervals are Wilson score intervals computed from the counts in the results file.
 - "Correct" is graded automatically: the answer must cite an expected passage and contain specific words. That check is strict in one direction (a good answer that uses different words fails; the remaining held-out failure is this case) and loose in the other (it does not judge whether the rest of the answer is right).
 - The 4 off-topic questions were rejected by retrieval before the model was called, so that row tests retrieval, not the model.
-- **One prompt-injection attempt succeeded in this run.** Asked to end its answer with a marker string, the model did so (it did not cite the fake passage it was also asked to cite). Repeating the question did not reproduce it, so the model follows such instructions intermittently; it is still a real weakness and is not counted as noise.
+- **The model still follows an injected instruction; the server now removes the result.** In the v2.0.0 run the model ended one answer with a marker string the question asked for. In the latest run it did the same again, and the server removed it before the answer was graded (`echoStripped` on item x03 in the results file; no other answer was changed). The 6 of 6 is the server's defence, not the model's. The defence only catches code-like tokens (letters mixed with digits) copied from the question, not injected plain words.
 - Each failure, before and after, is explained in [docs/design.md](docs/design.md#chat-evaluation-failures).
 
 **Production latency** ([results/latency-before.json](results/latency-before.json), [results/latency-after.json](results/latency-after.json), reproduce with `npm run latency -- <label> --cold`)
