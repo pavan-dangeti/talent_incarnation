@@ -97,7 +97,21 @@ Gemini is used in one place: generating the chatbot's answer, behind a server ac
 - **Guardrails:** careers and learning only; no salaries, hiring numbers, company names or guarantees; no medical, legal or financial advice; instructions inside user text or passages are treated as data; output rendered as plain text.
 - **Evaluation:** `evals/chat-eval.json` has 56 questions: 38 answerable (12 held out from tuning), 8 unanswerable, 4 off-topic and 6 adversarial. `npm run eval:retrieval` (no key, checked in CI) writes `results/retrieval-eval.json`. `npm run eval:chat` (live model) writes `results/chat-eval.json` with correctness, abstention, injection resistance and raw citation validity; grading is by substring and citation checks, documented in `scripts/lib/chat-eval.ts` with its limits. The run is paced, retries transient errors, caches completed answers locally, reports API failures as "not run" rather than wrong, and writes the file only when every item completed.
 - **Transient model errors** (`src/chat/retry.ts`): in production a 503 or a per-minute 429 gets one quick retry (at most 2 seconds) before the user sees the error message; a longer server-requested wait, a timeout or a daily quota error fails straight away.
-- **Known limits:** answer quality is unmeasured until the live evaluation is run. The evaluation set is small and self-authored. Rate-limit windows are clock hours, so up to twice the hourly limit can be sent across an hour boundary; the daily limit still applies.
+- **Known limits:** The evaluation set is small and self-authored. Rate-limit windows are clock hours, so up to twice the hourly limit can be sent across an hour boundary; the daily limit still applies.
+
+### Chat evaluation failures
+
+From the run recorded in `results/chat-eval.json` (`gemini-3.5-flash-lite`, 2026-11-13, commit `13c33b8`). "Retrieved" is the top 4 passages the model was given.
+
+| Item | Split | Question | Retrieved the needed passage? | What the model did | Cause |
+|---|---|---|---|---|---|
+| a06 | development | What does a DevOps engineer do? | Partly: the overview, but not `devops-engineer#work`, which describes deployment pipelines | Correct one-sentence answer from the overview | Retrieval ranking. All five sections of the role score similarly once the role is named, and "do" carries no signal, so the work section lost to related, skills and start |
+| a16 | development | What does a mobile developer need to learn? | No: `mobile-developer#start` was retrieved, `#skills` (which names Kotlin and Swift) was not | Correct advice from the start section, but no languages named | Retrieval ranking. "Learn" is expanded towards the start section, which outranked the skills section |
+| a20 | development | What should my first projects be as a UI designer? | No: `ui-designer#start` was not retrieved | Declined, correctly, because the retrieved passages did not answer it | Retrieval ranking. The UI designer start section does not use the word "projects" (six other roles' start sections do), and the product designer overview ranked first |
+| h07 | held-out | How is a product designer different from a UX designer? | Yes: `product-designer#overview` and `ux-designer#related` | Accurate, cited comparison | Grading. The answer does not contain the required word "visual", although a retrieved passage (`ux-designer#related`) does; it is not a wrong answer |
+| h08 | held-out | What does a UX researcher actually do? | Partly: the overview, but not `ux-researcher#work`, which mentions interviews | Correct but general answer from the overview | Retrieval ranking, the same pattern as a06 |
+
+No answer was wrong or unsupported. Four failures come from retrieval returning the wrong sections of the right role, one from the grader. The held-out items are reported as they are and were not used to change anything. A fix for the development failures (retrieving every section of a named role, or ranking sections by the kind of question) has not been applied: it would change the prompts, so the live evaluation would have to be run again to measure it.
 
 ## 7. Threat model
 

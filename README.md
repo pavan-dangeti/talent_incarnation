@@ -32,7 +32,7 @@ A career guidance platform that aims to help students and early-career people:
 | Landing page | Minimal (sign-in entry point) |
 | Google sign-in, editable profile, account deletion | Built in Phase 1; not yet verified against a live Google client and Neon database (needs your credentials) |
 | Skill assessment: 15 adaptive questions per attempt, a score with an uncertainty range, topic breakdown and an explanation for every answer. Original bank of 90 questions (30 each for software engineering, data/AI and UI/UX design) | Built in Phase 2; full flow checked locally in a browser against the dev database |
-| Career chatbot (Gemini): answers only from a curated careers dataset (13 roles, 69 passages) and your results, cites the passages it used, abstains when it has no support, with per-user rate limits | Built in Phase 3. Retrieval, citation checking, guardrails and rate limits are tested. **Not yet run against a live model**: it needs `GEMINI_API_KEY` and `GEMINI_CHAT_MODEL`, so answer quality is unmeasured |
+| Career chatbot (Gemini): answers only from a curated careers dataset (13 roles, 69 passages) and your results, cites the passages it used, abstains when it has no support, with per-user rate limits | Built in Phase 3 and evaluated end to end with a live model (see Measured results) |
 | Skill-gap analysis and learning roadmap for a target role | Planned (Phase 4) |
 | Automated tests, accessibility and Lighthouse checks | Planned (Phase 5) |
 | Security review, monitoring, error tracking | Planned (Phase 6) |
@@ -63,7 +63,25 @@ Whether the right passage is found for a question, measured on [evals/chat-eval.
 
 Retrieval was tuned on the development questions only; the held-out questions were written before tuning and never used for it. Both sets are small and were written by the same person who wrote the dataset, so treat these as a sanity check, not a benchmark. Retrieval alone rejects all 4 off-topic questions but none of the 8 career questions the dataset cannot answer; those depend on the model abstaining.
 
-**Chatbot answers:** not measured yet. `npm run eval:chat` runs the same 56 questions (answerable, unanswerable, off-topic and adversarial) through the live model and writes `results/chat-eval.json`. Until that file is committed, no claim is made about answer accuracy, abstention or resistance to prompt injection.
+**Chatbot answers** ([results/chat-eval.json](results/chat-eval.json), reproduce with `npm run eval:chat`)
+
+All 56 questions in [evals/chat-eval.json](evals/chat-eval.json) run end to end through retrieval, the live model and the server-side citation check. Model `gemini-3.5-flash-lite`, run on 2026-11-13 at commit `13c33b8`; every item completed.
+
+| Check | Result | 95% confidence interval |
+|---|---|---|
+| Answerable questions answered correctly, development set | 23 of 26 (88.5%) | 71.0% to 96.0% |
+| Answerable questions answered correctly, held-out set | 10 of 12 (83.3%) | 55.2% to 95.3% |
+| Unanswerable career questions declined | 8 of 8 | 67.6% to 100% |
+| Off-topic questions declined | 4 of 4 | 51.0% to 100% |
+| Prompt-injection attempts resisted | 6 of 6 | 61.0% to 100% |
+| Model answers whose citations were all among the retrieved passages | 51 of 51 | 93.0% to 100% |
+
+How to read this:
+
+- The question sets are small and were written by the same person who wrote the dataset and the code, so the intervals are wide and the results say nothing about questions from real users. Intervals are Wilson score intervals computed from the counts in the results file.
+- "Correct" is graded automatically: the answer must cite an expected passage and contain specific words. That check is strict in one direction (a good answer that uses different words fails; one held-out failure is this case) and loose in the other (it does not judge whether the rest of the answer is right).
+- The 4 off-topic questions were rejected by retrieval before the model was called, so that row tests retrieval, not the model.
+- All 5 failures are explained in [docs/design.md](docs/design.md#chat-evaluation-failures). In short: in four, the passage with the needed detail was not among the 4 retrieved, and the model answered correctly but incompletely from what it had, or in one case correctly declined. In the fifth, a held-out item, the answer was accurate but did not use the word the grader required.
 
 **Production latency** ([results/latency-before.json](results/latency-before.json), [results/latency-after.json](results/latency-after.json), reproduce with `npm run latency -- <label> --cold`)
 
