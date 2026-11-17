@@ -116,7 +116,7 @@ The following requests were back to normal. This delay is the Neon free tier sus
 
 **Automated tests** ([results/test-run.json](results/test-run.json), recorded with `npm run record:tests -- <commit>`)
 
-80 of 80 tests passed in 11 files in the CI run for commit `1c6ab20`. The counts are read from that run's log, not from a local run.
+84 of 84 tests passed in 11 files in the CI run for commit `9f1f094` (the v2.0.0 release commit). The counts are read from that run's log, not from a local run.
 
 ## Tech stack
 
